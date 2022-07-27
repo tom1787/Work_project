@@ -1,0 +1,279 @@
+library(survival)
+source("F:\\H107217\\Tom\\20201102\\WeightROC,AUC.R")
+#ROC AUC
+x<-function(formula, data){
+  library(survival)
+  model<-clogit(formula, data=data)
+  pred<-predict(model, type="expected")
+  ROC<-WeightedROC(pred, data$asthma_icdtwice,
+                   rep(1, dim(data)[1]))
+  AUC <- WeightedAUC(WeightedROC(pred, data$asthma_icdtwice, rep(1, dim(data)[1])))
+  return(data.frame(TPR=ROC$TPR,FPR=ROC$FPR,AUC))
+}
+#plot
+p<-function(line,c){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=hcl.colors(length(line),rev = T)
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],data)$FPR,x(line[[i]],data)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste("Model",i,"=",sep =""),sprintf("%.2f",x(line[[i]],data)$AUC[1]),sep =" ")
+  }
+  legend(0.60,0.5,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+data<-read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv")
+data$class_Bmi<-relevel(factor(data$class_Bmi),ref = "2")
+data$class_wc<-factor(data$class_wc)
+data$wc_hei_class<-factor(data$wc_hei_class)
+data$edu_group<-factor(data$edu_group)
+data$asthma_parent<-factor(data$asthma_parent)
+data$asthma_sibling<-factor(data$asthma_sibling)
+data$CS<-factor(data$CS)
+data$AR<-factor(data$AR)
+data$copd<-factor(data$copd)
+data$GERD<-factor(data$GERD)
+data$Hypertension<-factor(data$Hypertension)
+data$score_asthma_class<-factor(data$score_asthma_class)
+data$score_bmi_class<-factor(data$score_bmi_class)
+data$score_wc_c_class<-factor(data$score_wc_c_class)
+data$score_WHtR_c_class<-factor(data$score_WHtR_c_class)
+line<-list(Asthma,BMI,WC,WHtR)
+PRS of Asthma and Obesity
+Asthma<-formula(asthma_icdtwice ~score_asthma_fix+ strata(X_MatchID))
+BMI<-formula(asthma_icdtwice ~score_bmi+ strata(X_MatchID))
+WC<-formula(asthma_icdtwice ~score_wc_c+ strata(X_MatchID))
+WHtR<-formula(asthma_icdtwice ~score_WHtR_c+ strata(X_MatchID))
+line<-list(Asthma,BMI,WC,WHtR)
+line<-list(Asthma,BMI,WC,WHtR)
+title<-c("PRS of Asthma","PRS of BMI","PRS of WC","PRS of WHtR")
+c=topo.colors(4)
+p(line,c,title)
+title<-c("PRS of Asthma","PRS of BMI","PRS of WC","PRS of WHtR")
+p<-function(line,c,title){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=hcl.colors(length(line),rev = T)
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],data)$FPR,x(line[[i]],data)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste(title[i],"=",sep =""),sprintf("%.2f",x(line[[i]],data)$AUC[1]),sep =" ")
+  }
+  legend(0.55,0.30,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+c=topo.colors(4)
+p(line,c,title)
+setwd("F:\\H107217\\Tom\\20210226\\")
+jpeg("PRS of Asthma and Obesity.jpg",width = 2000,height = 1600,res = 300)
+c=topo.colors(4)
+p(line,c,title)
+dev.off()
+p<-function(line,c,title){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=hcl.colors(length(line),rev = T)
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],data)$FPR,x(line[[i]],data)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste(title[i],"=",sep =""),sprintf("%.2f",x(line[[i]],data)$AUC[1]),sep =" ")
+  }
+  legend(0.55,0.40,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+Asthma<-formula(asthma_icdtwice ~score_asthma_fix+ strata(X_MatchID))
+BMI<-formula(asthma_icdtwice ~score_bmi+ strata(X_MatchID))
+WC<-formula(asthma_icdtwice ~score_wc_c+ strata(X_MatchID))
+WHtR<-formula(asthma_icdtwice ~score_WHtR_c+ strata(X_MatchID))
+line<-list(Asthma,BMI,WC,WHtR)
+title<-c("PRS of Asthma","PRS of BMI","PRS of WC","PRS of WHtR")
+setwd("F:\\H107217\\Tom\\20210226\\")
+jpeg("PRS of Asthma and Obesity.jpg",width = 2000,height = 1600,res = 300)
+c=topo.colors(4)
+p(line,c,title)
+dev.off()
+p<-function(line,c,title){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=hcl.colors(length(line),rev = T)
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],data)$FPR,x(line[[i]],data)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste(title[i],"=",sep =""),sprintf("%.2f",x(line[[i]],data)$AUC[1]),sep =" ")
+  }
+  legend(0.60,0.40,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+Asthma<-formula(asthma_icdtwice ~score_asthma_fix+ strata(X_MatchID))
+BMI<-formula(asthma_icdtwice ~score_bmi+ strata(X_MatchID))
+WC<-formula(asthma_icdtwice ~score_wc_c+ strata(X_MatchID))
+WHtR<-formula(asthma_icdtwice ~score_WHtR_c+ strata(X_MatchID))
+line<-list(Asthma,BMI,WC,WHtR)
+title<-c("PRS of Asthma","PRS of BMI","PRS of WC","PRS of WHtR")
+setwd("F:\\H107217\\Tom\\20210226\\")
+jpeg("PRS of Asthma and Obesity.jpg",width = 2000,height = 1600,res = 300)
+c=topo.colors(4)
+p(line,c,title)
+dev.off()
+p<-function(line,c,title){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=hcl.colors(length(line),rev = T)
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],data)$FPR,x(line[[i]],data)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste(title[i],"=",sep =""),sprintf("%.2f",x(line[[i]],data)$AUC[1]),sep =" ")
+  }
+  legend(0.60,0.35,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+Asthma<-formula(asthma_icdtwice ~score_asthma_fix+ strata(X_MatchID))
+BMI<-formula(asthma_icdtwice ~score_bmi+ strata(X_MatchID))
+WC<-formula(asthma_icdtwice ~score_wc_c+ strata(X_MatchID))
+WHtR<-formula(asthma_icdtwice ~score_WHtR_c+ strata(X_MatchID))
+line<-list(Asthma,BMI,WC,WHtR)
+title<-c("PRS of Asthma","PRS of BMI","PRS of WC","PRS of WHtR")
+setwd("F:\\H107217\\Tom\\20210226\\")
+jpeg("PRS of Asthma and Obesity.jpg",width = 2000,height = 1600,res = 300)
+c=topo.colors(4)
+p(line,c,title)
+dev.off()
+p<-function(line,c,title){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=hcl.colors(length(line),rev = T)
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],data)$FPR,x(line[[i]],data)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste(title[i],"=",sep =""),sprintf("%.2f",x(line[[i]],data)$AUC[1]),sep =" ")
+  }
+  legend(0.60,0.36,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+Asthma<-formula(asthma_icdtwice ~score_asthma_fix+ strata(X_MatchID))
+BMI<-formula(asthma_icdtwice ~score_bmi+ strata(X_MatchID))
+WC<-formula(asthma_icdtwice ~score_wc_c+ strata(X_MatchID))
+WHtR<-formula(asthma_icdtwice ~score_WHtR_c+ strata(X_MatchID))
+line<-list(Asthma,BMI,WC,WHtR)
+title<-c("PRS of Asthma","PRS of BMI","PRS of WC","PRS of WHtR")
+setwd("F:\\H107217\\Tom\\20210226\\")
+jpeg("PRS of Asthma and Obesity.jpg",width = 2000,height = 1600,res = 300)
+c=topo.colors(4)
+p(line,c,title)
+dev.off()
+
+#BMI
+BMI<-formula(asthma_icdtwice ~class_Bmi+ strata(X_MatchID))
+BMI1<-formula(asthma_icdtwice ~score_bmi+ strata(X_MatchID))
+BMI2<-formula(asthma_icdtwice ~class_Bmi+score_bmi+ strata(X_MatchID))
+BMI3<-formula(asthma_icdtwice ~class_Bmi+score_asthma_fix+ strata(X_MatchID))
+BMI4<-formula(asthma_icdtwice ~score_bmi+score_asthma_fix+ strata(X_MatchID))
+BMI5<-formula(asthma_icdtwice ~class_Bmi+score_bmi+score_asthma_fix+ strata(X_MatchID))
+#plot
+p<-function(line,c){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=hcl.colors(length(line),rev = T)
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],data)$FPR,x(line[[i]],data)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste("Model",i,"=",sep =""),sprintf("%.2f",x(line[[i]],data)$AUC[1]),sep =" ")
+  }
+  legend(0.60,0.5,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+line_BMI<-list(BMI,BMI1,BMI2,BMI3,BMI4,BMI5)
+jpeg("BMI_ROC1.jpg",width = 1600,height = 1600,res = 300)
+c=topo.colors(6)
+p(line_BMI,c)
+dev.off()
+BMI11<-formula(asthma_icdtwice~class_Bmi+score_asthma_fix+factor(edu_group)+
+                 factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                 factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                 PPM25+ strata(X_MatchID))
+BMI12<-formula(asthma_icdtwice~score_bmi+score_asthma_fix+factor(edu_group)+
+                 factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                 factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                 PPM25+ strata(X_MatchID))
+BMI13<-formula(asthma_icdtwice~class_Bmi+score_bmi+score_asthma_fix+factor(edu_group)+
+                 factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                 factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                 PPM25+ strata(X_MatchID))
+line_BMI_model<-list(BMI11,BMI12,BMI13)
+jpeg("BMI_ROC2.jpg",width = 1600,height = 1600,res = 300)
+c=topo.colors(6)
+p(line_BMI_model,c)
+dev.off()
+
+#WC
+wc_c1<-formula(asthma_icdtwice ~class_wc+strata(X_MatchID))
+wc_c2<-formula(asthma_icdtwice ~score_wc_c+strata(X_MatchID))
+wc_c3<-formula(asthma_icdtwice ~class_wc+score_wc_c+ strata(X_MatchID))
+wc_c4<-formula(asthma_icdtwice ~class_wc+score_asthma_fix+strata(X_MatchID))
+wc_c5<-formula(asthma_icdtwice ~score_wc_c+score_asthma_fix+strata(X_MatchID))
+wc_c6<-formula(asthma_icdtwice ~class_wc+score_wc_c+score_asthma_fix+ strata(X_MatchID))
+line_wc_c<-list(wc_c1,wc_c2,wc_c3,wc_c4,wc_c5,wc_c6)
+c=topo.colors(6)
+p(line_wc_c,c)
+jpeg("WC_ROC1.jpg",width = 1600,height = 1600,res = 300)
+c=topo.colors(6)
+p(line_wc_c,c)
+dev.off()
+Wc_c11<-formula(asthma_icdtwice~class_wc+score_asthma_fix+factor(edu_group)+
+                  factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                  factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                  PPM25+ strata(X_MatchID))
+Wc_c12<-formula(asthma_icdtwice~score_wc_c+score_asthma_fix+factor(edu_group)+
+                  factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                  factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                  PPM25+ strata(X_MatchID))
+Wc_c13<-formula(asthma_icdtwice~class_wc+score_wc_c+score_asthma_fix+factor(edu_group)+
+                  factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                  factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                  PPM25+ strata(X_MatchID))
+line_Wc_c_model<-list(Wc_c11,Wc_c12,Wc_c13)
+jpeg("WC_ROC2.jpg",width = 1600,height = 1600,res = 300)
+c=topo.colors(6)
+p(line_Wc_c_model,c)
+dev.off()
+data$wc_hei_class
+
+
+#WHtR
+WHtR<-formula(asthma_icdtwice ~wc_hei_class+strata(X_MatchID))
+WHtR1<-formula(asthma_icdtwice ~score_WHtR_c+strata(X_MatchID))
+WHtR2<-formula(asthma_icdtwice ~wc_hei_class+score_WHtR_c+ strata(X_MatchID))
+WHtR3<-formula(asthma_icdtwice ~wc_hei_class+score_asthma_fix+strata(X_MatchID))
+WHtR4<-formula(asthma_icdtwice ~score_WHtR_c+score_asthma_fix+strata(X_MatchID))
+WHtR5<-formula(asthma_icdtwice ~wc_hei_class+score_WHtR_c+score_asthma_fix+ strata(X_MatchID))
+line_WHtR<-list(WHtR,WHtR1,WHtR2,WHtR3,WHtR4,WHtR5)
+jpeg("WHtR_ROC1.jpg",width = 1600,height = 1600,res = 300)
+c=topo.colors(6)
+p(line_WHtR,c)
+dev.off()
+##finally model
+WHtR11<-formula(asthma_icdtwice~wc_hei_class+score_asthma_fix+factor(edu_group)+
+                  factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                  factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                  PPM25+ strata(X_MatchID))
+WHtR12<-formula(asthma_icdtwice~score_WHtR_c+score_asthma_fix+factor(edu_group)+
+                  factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                  factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                  PPM25+ strata(X_MatchID))
+WHtR13<-formula(asthma_icdtwice~wc_hei_class+score_WHtR_c+score_asthma_fix+factor(edu_group)+
+                  factor(asthma_parent)+factor(asthma_sibling)+factor(NP)+
+                  factor(copd)+factor(Depression)+factor(GERD)+factor(Hypertension)+
+                  PPM25+ strata(X_MatchID))
+line_WHtR_model<-list(WHtR11,WHtR12,WHtR13)
+jpeg("WHtR_ROC2.jpg",width = 1600,height = 1600,res = 300)
+c=topo.colors(6)
+p(line_WHtR_model,c)
+dev.off()
