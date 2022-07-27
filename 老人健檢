@@ -1,0 +1,1452 @@
+# 北市老人健康檢查資料分析
+
+# LOAD THE PACKAGE
+library(car);library(parallel);library(foreach);library(doParallel);library(itertools)
+library(svMisc);library(gtools);library(foreach);library(dplyr)
+library(ggplot2);library(RODBC);library(scales);library(gtools);library(ncar)
+
+
+# LOAD THE DATA
+md= read.csv("C:/data/郭醫師北市老健分析_Shuting_20190730/老健_未歸人_20190426_含尿蛋白_cancer_part.csv",na.strings=c("NA", " ")) #N=315045
+# md = read.csv("C:/Users/nick/Desktop/Final_Model_0729.csv")
+# #	t2<-md[md$sys_no=="C403100040274719Y0H6831901123",]
+# # CANCER VARIABLE CHANGE TO FACTOR
+# kk = 193:239
+# md[kk] = lapply(md[kk], as.factor) 
+# names(md)[names(md) == "年齡"] <- "age"
+# names(md)[names(md) == "健檢日期"] <- 'med_date'
+#md[md$COD_CODID=="na",'COD_CODID']<-NA
+
+
+md$COD_CODID<-ave(md$COD_CODID, md$sys_no, FUN=function(x) if(sum(!is.na(x))!=0){unique(x[!is.na(x)])}else{NA})
+#Check t<-md[md$sys_no %in% c("C40310068015200Y0H8559409439"),]
+#Check t<-md[md$sys_no %in% c("C403529748405577Y0H4849846137"),]
+#Check #計算COD_CODID有值group
+grp_NA<-aggregate(COD_CODID ~  sys_no, data = md, FUN = function(x)c(NA.n = sum(is.na(x)),Unique.n =length(unique(x[!is.na(x)])), n = length(x)),na.action = NULL)
+#clonames of grp_NA :DIAG_DT.NA.n, DIAG_DT.Unique.n ,DIAG_DT.n,NA.n, Unique.n, n
+grp_NA <- cbind(grp_NA[-ncol(grp_NA)], grp_NA[[ncol(grp_NA)]])
+#Check是否有同一個id有不同的CASTIE值 #照理來說應該要沒有
+grp_NA[which( grp_NA$Unique.n>1),]
+grp_NA[which(grp_NA$NA.n>=1 & grp_NA$Unique.n>0),]
+
+
+
+#### eGFR best slope  (DECLINE) ##############################
+no = as.data.frame(table(md$sys_no))
+no = no %>%  arrange(Freq)
+colnames(no) = c("sys_no","Freq")
+
+# MERGE THE DATA WITH COUNT
+md_new = merge(x = md, y = no, by = "sys_no",all.X = TRUE)
+summary(factor(md_new$Freq))
+
+# DELETE CREA = 999 & NA
+md_new = md_new[-(which(md_new$Crea >= 999)),]  #N=314868 (delete 177)
+md_new = md_new[-(which(is.na(md_new$Crea) == TRUE)),] #N=311201 (delete 3667)
+# eFGR CALCULATE
+md_new$eGFR = 186.3*(md_new$Crea)^(-1.154)*(md_new$年齡)^(-0.203)
+
+# GIRL*0.742
+egfr = function(md_new){
+  for(i in 1:nrow(md_new)){
+    if(md_new$Sex[i] == "女"){
+      md_new$eGFR[i]= (md_new$eGFR[i])*0.742
+    }else{
+      md_new$eGFR[i] = md_new$eGFR[i]
+    } 
+  }
+  return(md_new)
+}
+
+## PARALLEL OPERATION
+myCoreNums = detectCores()
+cl = makeCluster(myCoreNums-1)
+registerDoParallel(cl)
+bb = Sys.time()
+out = foreach(smalldata = isplitRows(md_new,chunks= myCoreNums-1),
+              .combine = "rbind"
+)%dopar%{
+  egfr(smalldata)
+}
+Sys.time() - bb
+md_new = out
+stopCluster(cl)
+
+which(is.na(md_new$eGFR) == TRUE) #CHECK NA 
+summary(md_new$eGFR)
+# DELETE EGFR>=200
+md_new= md_new[-(which(md_new$eGFR >= 200)),] #N=311088 (delete 133)
+cal_egfr = md_new[,c(1,3,67)]  #315045-311088=-3957
+which(is.na(cal_egfr$eGFR) == TRUE) #CHECK NA
+cal_egfr$eGFR = as.numeric(cal_egfr$eGFR)
+# COUNT
+no = as.data.frame(table(cal_egfr$sys_no))
+no = no %>%  arrange(Freq)
+colnames(no) = c("sys_no","Freq") 
+# MERGE THE DATA WITH COUNT
+cal_egfr4 = merge(x = cal_egfr, y = no, by = "sys_no",all.X = TRUE)
+cal_egfr4 = cal_egfr4[-grep("1",cal_egfr4$Freq),] #DELITE APPEAR ONCE #311088-279713=31375
+
+write.csv(cal_egfr4,"C:/data/郭醫師北市老健分析_Shuting_20190730/000.csv",row.names=FALSE)
+
+cal_egfr = read.csv("C:/data/郭醫師北市老健分析_Shuting_20190730/000.csv")
+summary(factor(cal_egfr$Freq))
+# SPLIT THE DATA ACCORDING TO SYS_NO
+out = split(cal_egfr,f = cal_egfr$sys_no)
+cc=data.frame()
+aa = Sys.time()
+for(out in out) {
+  out$健檢年 = as.numeric(out$健檢年)
+  dd = summary(lm(out$eGFR~out$健檢年))$coefficients[2]
+  cc = rbind(cc,dd)
+}
+Sys.time()-aa
+bb = cbind(cal_egfr[!duplicated(cal_egfr$sys_no),1],cc)
+colnames(bb) = c("sys_no","slope")
+# DECLINE (SLOPE>=5)
+cal_egfr4 = merge(x = cal_egfr, y = bb, by = "sys_no",all.X = TRUE)
+cal_egfr4$decline = "0"
+cal_egfr4[cal_egfr4$slope<=-5,6] = "1"
+# MERGE DATA
+mdd = merge(x = md, y = cal_egfr4, by = c("sys_no","健檢年"),all.X = TRUE)
+md = mdd
+
+# UNIQUE PEOPLE
+library(dplyr)
+md %>%summarise(n_distinct(sys_no))
+
+#md = md[order(md$健檢年,decreasing=TRUE),]
+#md = md[!duplicated(md$sys_no), ]
+
+# DELETE 999 異常值 #N=279713-269570(delete   10143) 
+md = md[-which((md$TG)==999),]
+md = md[-which((md$waist)==999),]
+md = md[-which((md$HDL)==999),]
+md = md[-which((md$Alb)==999),]
+md = md[-which((md$UA)==999),]
+md= md[-which((md$WBC)==999),]
+md = md[-which((md$HB)==999),]
+md = md[-which((md$AC)==999),]
+md = md[-which((md$systolic)==999),]
+md = md[-which((md$diastolic)==999),]
+
+md2<-md
+md<-md2
+##### DM (AC > 126)######################################
+md$DM = "0"
+md[(md$AC>=126)&(!is.na(md$AC)),"DM"] = "1" 
+md[is.na(md$AC),"DM"] = NA
+md$DM = as.factor(md$DM)
+summary(md$DM)
+
+##### BMI_CLASS##########################################
+md$BMI_class = "正常"
+md[(md$BMI>=24)&(!is.na(md$BMI)),"BMI_class"] = "過重"
+md[(md$BMI<18.5)&(!is.na(md$BMI)),"BMI_class"] = "過輕"
+md[is.na(md$BMI),245] = NA
+md$BMI_class = as.factor(md$BMI_class)
+summary(md$BMI_class)
+
+##### Waist_NA####################################
+imm = md[,c("sys_no","waist")]
+im = aggregate(md$waist,list(md$sys_no),mean,na.rm = TRUE)
+colnames(im) = c("sys_no","waist_mean")
+imm = merge(imm,im,by = "sys_no",all.x = TRUE)
+aa = function(imm){
+  for(i in 1:nrow(imm)){
+    if(is.na(imm$waist[i])){
+      imm$waist[i] = imm$waist_mean[i]
+    }
+  }
+  return(imm)
+}
+## 平行運算
+myCoreNums = detectCores()
+cl = makeCluster(myCoreNums-1)
+registerDoParallel(cl)
+bb = Sys.time()
+out = foreach(smalldata = isplitRows(imm,chunks= myCoreNums-1),
+              .combine = "rbind"
+)%dopar%{
+  aa(smalldata)
+}
+Sys.time() - bb
+imm = out
+stopCluster(cl)
+colnames(imm) = c("sys_no","waist2","waist_mean")
+waist2 = imm[,-c(1,3)]
+md = cbind(md,waist2)
+
+##### BP (SYSTOLIC & DIATOLIC)###########################
+md$BP = "0"
+md[(md$systolic>=130)&(!is.na(md$systolic)),"BP"] = "1"
+md[(md$diastolic>=85)&(!is.na(md$diastolic)),"BP"] = "1"
+md[is.na(md$systolic),"BP"] = NA
+md[is.na(md$diastolic),"BP"] = NA
+md$BP = as.factor(md$BP)
+summary(md$BP)
+
+#####Protein_class####################################
+md$Protein_class = "0"
+md[is.na(md$Protein),"Protein_class"] = NA
+md[(grep("\\-{1}",md$Protein)),"Protein_class"] = "1"
+md[(grep("\\+/-{1}",md$Protein)),"Protein_class"] = "2"
+md[(grep("\\+{1}",md$Protein)),"Protein_class"] = "2"
+md[(grep("\\+{2}",md$Protein)),"Protein_class"] = "2"
+md[(grep("\\+{4}",md$Protein)),"Protein_class"] = "3"
+md[(grep("\\+{3}",md$Protein)),"Protein_class"] = "3"
+md[which((md$Protein_class)==0),"Protein_class"] = NA
+md$Protein_class = as.factor(md$Protein_class)
+summary(md$Protein_class)
+
+#### eGFR new group 45 60 90 ############################
+md$eGFR_class = "0"
+md[md$eGFR.y<45,"eGFR_class"] = "4"
+md[((60>md$eGFR.y)&(md$eGFR.y>=45)),"eGFR_class"] = "3"
+md[((90>md$eGFR.y)&(md$eGFR.y>=60)),"eGFR_class"] = "2"
+md[(md$eGFR.y>=90),"eGFR_class"] = "1"
+
+#### CANDEAD = 1 #######################################
+md$CanDead = "0"
+nana = function(md){
+  for(i in 1:nrow(md)){
+    if(grepl(" ",md$COD_CODID[i]) == TRUE){
+      md$COD_CODID[i] = "na"
+    }
+    ##再將遺失值改為na
+    md$COD_CODID = as.character(md$COD_CODID) #factor turn to character
+    if(is.na(md$COD_CODID[i] == TRUE)){
+      md$COD_CODID[i] = "na"
+    }
+  }
+  return(md)
+}
+## PARALLEL OPERATION
+myCoreNums = detectCores()
+cl = makeCluster(myCoreNums-1)
+registerDoParallel(cl)
+bb = Sys.time()
+out = foreach(smalldata = isplitRows(md,chunks= myCoreNums-1),
+              .combine = "rbind"
+)%dopar%{
+  nana(smalldata)
+}
+Sys.time()-bb
+md = out
+stopCluster(cl) # STOP PARALLEL OPERATION
+## CANCER ICD CODE
+dd = function(md){
+  for(i in 1:nrow(md)){
+    if(grepl("C",md$COD_CODID[i]) == TRUE){
+      md$CanDead[i] = "1"
+    }
+    if(grepl("^1[456789][0-9]",md$COD_CODID[i])){
+      md$CanDead[i] = "1"
+    }
+    if(grepl("^2[0123][0-9]",md$COD_CODID[i])){
+      md$CanDead[i] = "1"
+    }
+  }
+  return(md)
+}
+myCoreNums = detectCores()
+cl = makeCluster(myCoreNums-1)
+registerDoParallel(cl)
+bb = Sys.time()
+out = foreach(smalldata = isplitRows(md,chunks= myCoreNums-1),
+              .combine = "rbind"
+)%dopar%{
+  dd(smalldata)
+}
+Sys.time()-bb
+md = out
+stopCluster(cl)
+md$CanDead = as.factor(md$CanDead)
+summary(md$CanDead)
+
+
+
+
+
+
+
+
+
+
+covariates<-c("年齡","Sex" ,"DM","BMI_class","BMI","TG","waist2","HDL","Alb", "UA","decline","BP", "Protein_class","WBC","HB","eGFR_class","eGFR.y")
+#dt1
+
+   #remove rows with NAs  #N=269570-223873 (delete  45697) 
+ md_m<-md[complete.cases(md[ ,c("年齡","Sex" ,"DM","BMI_class","BMI","TG","waist2","HDL","Alb", "UA","decline","BP", "Protein_class","WBC","HB","eGFR_class","eGFR.y")]),]
+ 
+ md_m$CanDead = as.factor(md_m$CanDead)
+ summary(md_m$CanDead)
+
+ library(dplyr)
+ md_m%>%summarise(n_distinct(sys_no)) #participants 62017
+ write.csv(md_m,"E:/老人健檢/20191211/data/Final_Model_1211.csv",row.names=FALSE)
+ #md0 = read.csv("C:/data/郭醫師北市老健分析_Shuting_20190730/Final_Model_0729.csv") #223873
+ #t3<-setdiff(md_m[,c("sys_no","健檢年")] , md0[,c("sys_no","健檢年")]) 
+
+library(compare)
+md0 = read.csv("C:/data/郭醫師北市老健分析_Shuting_20190730/Final_Model_0729.csv") #223873
+cols.factor<-c("Sex","DM","decline","BP","Protein_class","eGFR_class","CanDead")
+colnames(md0)
+colnames(md3)
+md0[,cols.factor] <- lapply(md0[,cols.factor], factor)
+md_m[,cols.factor] <- lapply(md_m[,cols.factor], factor)
+
+md3<-md3[,-c(251:253)]
+
+md0$included_a1 <- TRUE
+md3$included_a2 <- TRUE
+res <- merge(md0, md3, all=TRUE)
+res$extra<-res$included_a1+res$included_a2 
+
+res1 <- res[is.na(res$extra), ]
+covariates<-c("年齡","Sex" ,"DM","BMI_class","BMI","TG","waist2","HDL","Alb", "UA","decline","BP", "Protein_class","WBC","HB","eGFR_class","eGFR.y")
+
+#dt1
+t<-md3[,covariates]
+
+
+t2<-md0[,covariates]
+t4<-md3[md3$sys_no %in% c("C403116470147910Y0H5785642562"),]
+t4<-md0[md0$sys_no %in% c("C403116470147910Y0H5785642562"),]
+
+
+#### SUMMARY MODEL ###################################################
+library(stats);library(psych)
+# DELETE NA 237521-233273 delete 4248
+#md3 = md[-which(is.na(md$DM)),]
+md = md[-which(is.na(md$BMI_class)),]
+#md3 = md[-which(is.na(md$TG)),]
+#md3 = md[-which(is.na(md$waist2)),]
+#md3 = md[-which(is.na(md$HDL)),]
+#md3 = md[-which(is.na(md$Alb)),]
+md = md[-which(is.na(md$UA)),]
+md = md[-which(is.na(md$BP)),]
+md = md[-which(is.na(md$Protein_class)),]
+md = md[-which(is.na(md$WBC)),]
+md = md[-which(is.na(md$HB)),]
+md = md[-which(is.na(md$DM)),]
+
+# CHANGE TO FACTOR
+md$CanDead = as.factor(md$CanDead)
+md$DM = as.factor(md$DM)
+md$eGFR_class = as.factor(md$eGFR_class)
+md$Protein_class = as.factor(md$Protein_class)
+md$BMI_class = as.factor(md$BMI_class)
+md$BP = as.factor(md$BP)
+#md$ms = as.factor(md$ms)
+md$decline = as.factor(md$decline)
+
+# SUMMARY ALL VARIABLES
+summary(md$年齡)
+describe(md$年齡)
+summary(md$Sex)
+summary(md$DM)
+summary(md$BMI_class)
+summary(md$TG)
+describe(md$TG)
+summary(md$waist2)
+describe(md$waist2)
+summary(md$HDL)
+describe(md$HDL)
+summary(md$Alb)
+describe(md$Alb)
+summary(md$UA)
+describe(md$UA)
+summary(md$decline)
+summary(md$BP)
+summary(md$Protein_class)
+summary(md$WBC)
+describe(md$WBC)
+summary(md$HB)
+describe(md$HB)
+summary(md$eGFR_class)
+
+# SUMMARY EACH EGFR GROUP
+mean(md$eGFR.y)
+summary(md$eGFR.y)
+describe(md$eGFR.y)
+
+md_class1 = md[which((md$eGFR_class==1)==TRUE),]
+md_class2 = md[which((md$eGFR_class==2)==TRUE),]
+md_class3 = md[which((md$eGFR_class==3)==TRUE),]
+md_class4 = md[which((md$eGFR_class==4)==TRUE),]
+
+md$eGFR_class = as.factor(md$eGFR_class)
+summary(md$eGFR_class)
+summary(md_class1$eGFR.y,digits = 5)
+summary(md_class2$eGFR.y,digits = 5)
+summary(md_class3$eGFR.y,digits = 5)
+summary(md_class4$eGFR.y,digits = 5)
+
+
+library(data.table)
+setwd("C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\")
+md = data.frame(fread("20191211/data/Final_Model_1211.csv",na.strings=c("NA", " "))) #223873
+summary(factor(md$Freq))
+cancer_cols<-c("十二指腸癌","下咽癌","口腔癌","口咽癌","大腸癌","男生殖器癌","小腸癌","內分泌癌","未明位置癌", "未明癌","甲狀腺癌","皮膚癌","多癌","舌癌","血癌","女生殖器癌","肛門癌","肝癌","肝膽續發癌","乳癌","泌尿癌", "肺癌","肺續發癌","胃癌","咽癌" ,"食道癌","消化呼吸癌","消化癌","胰癌","胸肋癌","胸腺癌","胸癌","骨癌","骨髓癌","淋巴癌","喉癌","結締組織癌" ,"腎癌","腦癌","腹膜癌","膀胱癌","鼻咽癌","鼻癌","頭癌","癌","膽癌","續發癌")
+
+#remove cancer columns 
+dt <- md[setdiff(colnames(md), cancer_cols)]
+
+
+names(dt)[names(dt) == "年齡"] <- "age"
+names(dt)[names(dt) == "健檢日期"] <- 'med_date'
+dt[dt$COD_CODID=="na",'COD_CODID']<-NA
+
+
+#dt$COD_CODID<-ave(dt$COD_CODID, dt$sys_no, FUN=function(x) if(sum(!is.na(x))!=0){unique(x[!is.na(x)])}else{NA})
+#Check t<-dt1[dt1$sys_no %in% c("C403100967934868Y0H9222261006"),]
+
+#Check #計算COD_CODID有值group
+grp_NA<-aggregate(COD_CODID ~  sys_no, data = dt, FUN = function(x)c(NA.n = sum(is.na(x)),Unique.n =length(unique(x[!is.na(x)])), n = length(x)),na.action = NULL)
+#clonames of grp_NA :DIAG_DT.NA.n, DIAG_DT.Unique.n ,DIAG_DT.n,NA.n, Unique.n, n
+grp_NA <- cbind(grp_NA[-ncol(grp_NA)], grp_NA[[ncol(grp_NA)]])
+#Check是否有同一個id有不同的CASTIE值 #照理來說應該要沒有
+grp_NA[which(grp_NA$NA.n>=1 & grp_NA$Unique.n>0),]
+grp_NA[which(grp_NA$Unique.n>1),]
+
+
+
+dt1<-dt
+
+
+
+dt1$Cancer_Site<-NULL
+dt1[c(grep("^1[4-9][0-9]", dt1$COD_CODID),
+      grep("^20[1-8]", dt1$COD_CODID),
+      grep("^C[0-8][0-9]", dt1$COD_CODID),
+      grep("^C9[0-7]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Others"
+
+
+# Head and Neck Cancer 
+# ICD-9:140-149, 160, 161; 
+# ICD-10:C00-C14,C30-C32
+# dt1[c(grep("^14[0-9]", dt1$COD_CODID),
+#      grep("^16[0,1]", dt1$COD_CODID),
+#      grep("^C0[0-9]", dt1$COD_CODID),
+#      grep("^C1[0-4]", dt1$COD_CODID),
+#      grep("^C3[0-2]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Head_And_Neck"
+
+# "GI Tract Cancer
+# ICD-9:150-154; 
+# ICD-10:C15-C21"
+dt1[c(grep("^15[0-4]", dt1$COD_CODID),
+      grep("^C1[5-9]", dt1$COD_CODID),
+      grep("^C2[0,1]", dt1$COD_CODID)) ,"Cancer_Site"]<-"GI_Tract_Cancer"
+
+# "Hepatobiliary Cancer
+# ICD-9:155-157; 
+# ICD-10:C22-C25"
+dt1[c(grep("^15[5-7]", dt1$COD_CODID),
+      grep("^C2[2-5]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Hepatobilliary_Cancer"
+
+
+# "Lung Cancer
+# ICD-9:162; 
+# ICD-10:C33-C34"
+
+dt1[c(grep("^162", dt1$COD_CODID),
+      grep("^C3[3,4]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Lung_Cancer"
+
+
+
+# "Breast Cancer
+# ICD-9:174-175; 
+# ICD-10:C50"
+# dt1[c(grep("^17[4,5]", dt1$COD_CODID),
+#      grep("^C50", dt1$COD_CODID)) ,"Cancer_Site"]<-"Breast_Cancer"
+
+
+# "Gynecological Cancer and Male genital Cancer
+# ICD-9:179-187; 
+# ICD-10:C51-C58(except C575,C576), C60-C63"
+
+# dt1[c(grep("^179", dt1$COD_CODID),
+#       grep("^18[0-7]", dt1$COD_CODID),
+#       grep("^C57[0-4,7-9]", dt1$COD_CODID),
+#       grep("^C5[1-6,8]", dt1$COD_CODID),
+#       grep("^C6[0-3]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Gynecological_Cancer" 
+
+##女性生殖器納入other Cancer
+#子宮體癌
+dt1[c(grep("^18[2]", dt1$COD_CODID),
+      grep("^C5[4]", dt1$COD_CODID)),"Cancer_Site"]<-"Others"
+#卵巢癌
+dt1[c(grep("^18[3]", dt1$COD_CODID),
+      grep("^C5[6]", dt1$COD_CODID),
+      grep("^C57[0-4]", dt1$COD_CODID)),"Cancer_Site"]<-"Others"
+#子宮頸癌
+dt1[c(grep("^18[0]", dt1$COD_CODID),
+      grep("^C5[3]", dt1$COD_CODID)),"Cancer_Site"]<-"Others"
+#Other
+dt1[c(grep("^179", dt1$COD_CODID),
+      grep("^18[1,4]", dt1$COD_CODID),
+      grep("^C5[1,2,5,8]", dt1$COD_CODID),
+      grep("^C57[7-9]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Others"
+
+
+dt1[c(grep("^18[5]", dt1$COD_CODID),
+      grep("^C6[1]", dt1$COD_CODID)),"Cancer_Site"]<-"Male_prostate_Cancer"
+dt1[c(grep("^18[6]", dt1$COD_CODID),
+      grep("^C6[2]", dt1$COD_CODID)),"Cancer_Site"]<-"Male_testicular_Cancer"
+dt1[c(grep("^18[7]", dt1$COD_CODID),
+      grep("^C6[0,3]", dt1$COD_CODID)),"Cancer_Site"]<-"Male_other_Cancer"
+
+
+
+
+# "Urinary Tract Cacner
+# ICD-9:188-189; 
+# ICD-10:C64-C68"
+dt1[c(grep("^18[8,9]", dt1$COD_CODID),
+      grep("^C6[4-8]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Urinary_Tract_Cacner"
+
+# "Hematologic Malignancy
+# ICD-9:200-208; 
+# ICD-10:C81-C96"
+
+dt1[c(grep("^20[0-8]", dt1$COD_CODID),
+      grep("^C8[1-9]", dt1$COD_CODID),
+      grep("^C9[0-6]", dt1$COD_CODID)) ,"Cancer_Site"]<-"Hematologic_Malignancy_Cancer"
+
+
+#md[setdiff(md$Cancer_Site, md$Cancer_Site_new)]
+
+
+
+# ICD<-read.csv("E:/老人健檢/20191211/coding book/ICD_cancer.csv", na.strings=c("","NA"))
+# #Check 惡性腫瘤:ICD-10:C00~C97;ICD-9:140~208
+# #t<-data.frame(icd_10=c(setdiff(dt1$COD_CODID,ICD$ICD10)))
+# #t<-t[order(t$icd_10),]
+# #write.csv(t,"C:/data/郭醫師北市老健分析_Shuting_20190730/ICD-分類/ICD_cancer20191210.csv")
+# dt1$Cancer_Site <- ICD$癌症部位[match(dt1$COD_CODID, ICD$ICD10) ] #53 Cancer Sites
+summary(factor(dt1$Cancer_Site))
+t<-as.data.frame.matrix(model.matrix( ~-1+addNA(dt1$Cancer_Site))) #NA也算一個level
+names(t) <- gsub("addNA\\(dt1\\$Cancer\\_Site\\)","", names(t))  #rename column names
+t<-t[ , !names(t) %in% c("NA")] #drop column "NA"
+dt1<-cbind(dt1,t)
+
+#Check #計算Cancer_Site有值group
+grp_NA<-aggregate(Cancer_Site ~  sys_no, data = dt1, FUN = function(x)c(NA.n = sum(is.na(x)),Unique.n =length(unique(x[!is.na(x)])), n = length(x)),na.action = NULL)
+#clonames of grp_NA :DIAG_DT.NA.n, DIAG_DT.Unique.n ,DIAG_DT.n,NA.n, Unique.n, n
+grp_NA <- cbind(grp_NA[-ncol(grp_NA)], grp_NA[[ncol(grp_NA)]])
+#Check是否有同一個id有不同的CASTIE值 #照理來說應該要沒有
+grp_NA[which(grp_NA$NA.n>=1 & grp_NA$Unique.n>0),]
+grp_NA[which(grp_NA$Unique.n>1),]
+
+
+dt<-dt1
+
+
+dt$med_date<-as.Date(dt$med_date, format="%m/%d/%Y")
+
+#
+library(zoo)
+
+dt$COD_DeathDay_new<-as.Date(as.yearmon(as.character(dt$COD_DeathDay_YYYYMM), "%Y%m"), frac = 0)+14
+#dt$COD_DeathDay_new<-as.Date(as.yearmon(as.character(dt$COD_DeathDay_YYYYMM), "%Y%m"), frac = 0)+14
+
+t<-dt[!is.na(dt$COD_DeathDay_new),]
+t<-t[(format(t$COD_DeathDay_new,"%m")==format(t$med_date,"%m")) & (format(t$COD_DeathDay_new,"%y")==format(t$med_date,"%y")),]
+
+#	Remove  persons whose med_date>COD_DeathDay_new
+#t2<-subset(dt, sys_no %in% c('C40325542062719Y0H8812469019',"C403974974297907Y0H6733271203")) 
+#t<-subset(t, !sys_no %in% c('C40325542062719Y0H8812469019',"C403974974297907Y0H6733271203")) 
+#	Remove two persons (13 rows) whose med_date>COD_DeathDay_new
+dt<-subset(dt, !sys_no %in% c('C40325542062719Y0H8812469019',"C403974974297907Y0H6733271203")) 
+
+condition <- dt$sys_no %in% t$sys_no
+dt[condition,"COD_DeathDay_new"]<-as.Date(as.yearmon(as.character(dt[condition,"COD_DeathDay_YYYYMM"]), "%Y%m"), frac = 1)
+
+#check
+t<-dt[!is.na(dt$COD_DeathDay_new) & is.na(dt$COD_CODID),] #8
+#t<-dt[is.na(dt$COD_DeathDay_new) & !is.na(dt$COD_CODID),] #0
+#223860->223852
+dt<-subset(dt, !sys_no %in%  t$sys_no) 
+
+# t<-dt[!is.na(dt$COD_DeathDay_new),] 
+# t<-t[(as.numeric(t$COD_DeathDay_new)<as.numeric(t$med_date)),]
+# t<-t[,c("sys_no","med_date","COD_DeathDay_YYYYMM","COD_DeathDay_new")]
+
+
+#nrow(md[md$sys_no %in% c('C40325542062719Y0H8812469019',"C403974974297907Y0H6733271203"),]) #13
+
+#remove.packages("digest")
+#install.packages("devtools")
+#devtools::install_github("tidyverse/multidplyr")
+library(multidplyr)
+library(dplyr, warn.conflicts = FALSE)
+
+
+# change (COD_DeathDay_new),
+# x<-dt %>%
+#   group_by(sys_no) %>%
+#   mutate(diff_in_days = difftime(med_date, min(med_date), unit = 'days'),
+#       diff_in_weeks = difftime(med_date, min(med_date), unit = 'weeks'),
+#       diff_in_months=round((diff_in_days)/(365.25/12),2),
+#       diff_in_yrs=round(diff_in_days/365.25,2),
+#       time=ifelse(CanDead==1,
+#                   round(difftime(COD_DeathDay_new, min(med_date), unit = 'days')/(365.25/12),2),
+#                   max(diff_in_months))
+#       )
+
+
+#time=floowup time
+#parallel version
+#dt[which(!is.na(dt$COD_DeathDay_new) & is.na(dt$COD_CODID)),] Yes
+#dt[which(is.na(dt$COD_DeathDay_new) & !is.na(dt$COD_CODID)),] No
+
+library(parallel)
+cl<- new_cluster(4)
+cluster_library(cl,c('dplyr')) 
+
+#create CanDead
+# dt<-dt %>%group_by(sys_no) %>% partition(cluster = cl) %>%
+#   mutate(CanDead=ifelse(sum(CanDead,na.rm=TRUE)>=1,
+#                      1,0))%>% collect()
+
+library(tidyverse)
+
+# cols_to_mutate <- c("CanDead")
+
+dt$CanDead1<-ifelse(is.na(dt$Cancer_Site),0,1)
+summary(as.factor(dt$CanDead1))
+# dt1<-dt %>%group_by(sys_no) %>% partition(cluster = cl) %>%
+#   mutate_at(cols_to_mutate, function(x) {
+#     dplyr::case_when(
+#       sum(x,na.rm=TRUE)>=1 ~ 1,
+#       sum(x,na.rm=TRUE)<1 ~ 0) 
+#   })%>% collect()
+
+#Check是否有同一個id有不同的CanDead1值 #照理來說應該要沒有
+grp_NA<-aggregate(cbind(CanDead1) ~  sys_no, data = dt, FUN = function(x)c(NA.n = sum(is.na(x)),Unique.n =length(unique(x[!is.na(x)])), n = length(x)),na.action = NULL)
+#clonames of grp_NA :DIAG_DT.NA.n, DIAG_DT.Unique.n ,DIAG_DT.n,NA.n, Unique.n, n
+grp_NA <- cbind(grp_NA[-ncol(grp_NA)], grp_NA[[ncol(grp_NA)]])
+grp_NA[which(grp_NA$Unique.n>1),]
+
+#t<-subset(dt, sys_no %in% c("C403100967934868Y0H9222261006")) 
+
+
+
+#md[(is.na(md$COD_DeathDay) & md$CanDead==1),]
+
+
+#status_new
+#dt$status<-dt$CanDead
+#dt<-dt[order(dt$sys_no,dt$med_date),]
+
+#dt[(!is.na(dt$COD_DeathDay_new) && dt$CanDead==0),]
+#dt[(!is.na(dt$COD_DeathDay_new) & dt$CanDead==0),'status']<-2
+#dt[dt$status==2,]
+#Check t<-subset(dt1, sys_no %in% c('C403100967934868Y0H9222261006')) 
+#age_new= age at start of the study
+#group_by(sys_no) %>%
+
+#新增變數CanDead_new 
+cl<- new_cluster(4)
+dt1<-dt %>% group_by(sys_no) %>%partition(cluster = cl) %>%
+  mutate(age_new= min(age,na.rm=TRUE),
+         diff_in_days = difftime(med_date, min(med_date,na.rm=TRUE), unit = 'days'),
+         diff_in_weeks = difftime(med_date, min(med_date,na.rm=TRUE), unit = 'weeks'),
+         diff_in_months=round((diff_in_days)/(365.25/12),2),
+         diff_in_yrs=round(diff_in_days/365.25,2),
+         time=ifelse(!is.na(COD_DeathDay_new),
+                     round(difftime(COD_DeathDay_new, min(med_date,na.rm=TRUE), unit = 'days')/(365.25/12),2),
+                     round(difftime(as.Date("12/31/2012", format="%m/%d/%Y"), min(med_date,na.rm=TRUE), unit = 'days')/(365.25/12),2)),
+         CanDead_new= ifelse(dplyr::row_number()!= dplyr::n(), 0,CanDead1),
+  )%>% collect()
+
+summary(factor(dt1$CanDead_new))
+summary(factor(dt1$CanDead1))
+
+#status= ifelse(dplyr::row_number()!= dplyr::n(), 0, status)
+
+#isTRUE( all.equal(x,dt1) ) #TRUE
+
+
+
+#create long format data
+dt1$start<-as.numeric(dt1$diff_in_months)
+
+cl<- new_cluster(4)
+dt1<-dt1 %>%
+  group_by(sys_no)%>% partition(cluster = cl) %>%
+  mutate(start=ifelse((start==time),start-0.5,start),
+         stop=dplyr::lead(as.numeric(start)))%>% collect()
+
+#stop point= end point,+0.5 day
+dt1[(is.na(dt1$stop)),"stop"]<-dt1[(is.na(dt1$stop)),"time"]
+
+
+#######time dependent
+
+
+# cancer_cols2<-c("十二指腸癌","下咽癌","口咽癌" ,"口腔癌","口癌","大腸癌",   
+#                "女生殖器癌","小腸癌","小腸續發癌","內分泌腺癌","內分泌癌",
+#                "內分泌續發癌","未明位置癌","未明癌","甲狀腺癌","皮膚癌",     
+#                "皮膚續發癌","多癌","舌癌","血癌","男生殖器癌",
+#                "肛門癌","肝癌","肝膽續發癌","乳癌","泌尿生殖癌",
+#                "泌尿癌","肺癌","肺續發癌","咽癌", "扁桃腺癌",
+#                "胃癌","食道癌","唇癌","消化呼吸癌","消化癌",
+#                "神經癌","胰癌","胸肋癌" ,"胸腺癌","胸癌",             
+#                "骨盆癌","骨癌","骨髓癌","淋巴癌","眼癌",    
+#                "唾液腺癌","喉癌", "結締組織癌","腎癌","間皮癌" ,    
+#                "腦癌","腦續發癌","腮腺癌","腹腔續發癌","腹膜癌",     
+#                "腹癌","膀胱癌","鼻咽癌","鼻癌","齒齦癌",   
+#                "頭癌","癌","膽癌","續發癌" ,"鼻腔癌")
+
+# #add COD_CODID
+# final<-dt1[,c("sys_no","med_date","COD_CODID","COD_DeathDay_YYYYMM","CanDead","CanDead_new","age","Sex" ,"DM","BMI_class","TG","waist2","HDL","Alb", "UA","decline","BP", "Protein_class","WBC","HB","eGFR_class",cancer_cols2
+# )]
+
+
+#############################################
+############癌症分類(人次)################
+############################################
+cl<- new_cluster(4)
+#sort by sys_no
+
+dt1<-dt1  %>% partition(cluster = cl) %>%
+  mutate(#Breast_cd=ifelse(((Breast_Cancer==1) & (CanDead_new==1)),1,0),
+    GItract_cd=ifelse(((GI_Tract_Cancer==1) & (CanDead_new==1)),1,0),
+    #Gynecological_cd 分成男女
+    #Gynecological_cd=ifelse(((Gynecological_Cancer==1) & (CanDead_new==1)),1,0),
+    #HAN_cd=ifelse(((Head_And_Neck==1) & (CanDead_new==1)),1,0),
+    Blood_cd=ifelse(((Hematologic_Malignancy_Cancer==1) & (CanDead_new==1)),1,0),
+    Hepatobilliary_cd=ifelse(((Hepatobilliary_Cancer==1) & (CanDead_new==1)),1,0),
+    Lung_cd=ifelse(((Lung_Cancer==1) & (CanDead_new==1)),1,0),
+    Others_cd=ifelse(((Others==1) & (CanDead_new==1)),1,0),
+    U_cd=ifelse(((Urinary_Tract_Cacner==1) & (CanDead_new==1)),1,0),
+  )%>% collect()
+
+summary(as.factor(dt1$CanDead1))
+summary(factor(dt1$Cancer_Site))
+#Check 
+#t<-subset(dt1, Cancer_Site %in% c('Breast_Cancer',"GI_Tract_Cancer","Gynecological_Cancer","Head_And_Neck","Hematologic_Malignancy_Cancer",'Hepatobilliary_Cancer',"Lung_Cancer",'Others',"Urinary_Tract_Cacner")) 
+nrow(t)
+#t<-t[order(t$icd_10),]
+
+
+
+dt1$Protein_class_new = "0"
+dt1[is.na(dt1$Protein),"Protein_class_new"] = NA
+dt1[(grep("\\-{1}",dt1$Protein)),"Protein_class_new"] = "1"
+dt1[(grep("\\+/-{1}",dt1$Protein)),"Protein_class_new"] = "2"
+dt1[(grep("\\+{1}",dt1$Protein)),"Protein_class_new"] = "2"
+dt1[(grep("\\+{2}",dt1$Protein)),"Protein_class_new"] = "2"
+dt1[(grep("\\+{4}",dt1$Protein)),"Protein_class_new"] = "2"
+dt1[(grep("\\+{3}",dt1$Protein)),"Protein_class_new"] = "2"
+dt1[which((dt1$Protein_class_new )==0),"Protein_class_new"] = NA
+
+
+#t<-dt1[dt1$sys_no %in% c("C403109951491519Y0H5726954278"),]
+dt1<-dt1[order(dt1$sys_no,dt1$med_date),]
+
+#Smoke_gp
+dt1$Smoke_gp<-NA
+dt1[which(dt1$Smoke=="僅飯後才吸菸" | dt1$Smoke=="朋友敬菸或應酬才吸菸"	| dt1$Smoke=="每天吸" ) ,"Smoke_gp"]<-1
+dt1[which(dt1$Smoke=="不吸菸") ,"Smoke_gp"]<-0
+summary(factor(dt1$Smoke_gp)) #NA=, 1=
+
+#Drink_gp
+dt1$Drink_gp<-NA
+dt1[which(dt1$Drink=="每天喝" | dt1$Drink=="偶爾喝"	| dt1$Drink=="常常喝" ) ,"Drink_gp"]<-1
+dt1[which(dt1$Drink=="不喝") ,"Drink_gp"]<-0
+summary(factor(dt1$Drink_gp)) #NA=, 1=
+
+dt11<-dt1[-which(is.na(dt1$Smoke_gp)|is.na(dt1$Drink_gp)),] 
+write.csv(dt11,"C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\tdcox20191231.csv")
+
+#############################################
+############前15大癌症(人次)################
+############################################
+# 
+# 
+# library('tidyverse')
+# dt<-read.csv("E:/老人健檢/20210322/data/tdcox20191231.csv", stringsAsFactors = FALSE,na.strings=c("NA", " "))
+# #癌症死亡人數()
+# 
+# #癌症死亡人數(participants)
+# cp<-dt[!duplicated(dt$sys_no), ]
+# summary(as.factor(cp$CanDead1))
+# 
+# 
+# #癌症人數
+# summary(as.factor(dt$CanDead1))
+
+
+#---------------------------------------------------------------------
+#                       BASELINE DESCRIPTIVE STATISTICS-CONTINUOUS 
+#---------------------------------------------------------------------
+
+dt<-read.csv("E:/老人健檢/20210322/data/tdcox20191231.csv", stringsAsFactors = FALSE,na.strings=c("NA", " "))
+
+
+dt$Protein_class_new = "0"
+dt[is.na(dt$Protein),"Protein_class_new"] = NA
+dt[(grep("\\-{1}",dt$Protein)),"Protein_class_new"] = "1"
+dt[(grep("\\+/-{1}",dt$Protein)),"Protein_class_new"] = "2"
+dt[(grep("\\+{1}",dt$Protein)),"Protein_class_new"] = "2"
+dt[(grep("\\+{2}",dt$Protein)),"Protein_class_new"] = "3"
+dt[(grep("\\+{4}",dt$Protein)),"Protein_class_new"] = "3"
+dt[(grep("\\+{3}",dt$Protein)),"Protein_class_new"] = "3"
+dt[which((dt$Protein_class_new )==0),"Protein_class_new"] = NA
+dt$Protein_class_new = as.factor(dt$Protein_class_new)
+#summary(md$Protein_class_new)
+#All-cause deaths and mortality (%)
+dt$Death<-as.factor(ifelse(!is.na(dt$COD_DeathDay_new),1,0))
+
+
+# CREATE BASELINE DATA
+cp <- with(dt, dt[order(sys_no, med_date), ]) #SORT BY sys_no, med_date
+cp_p<-cp[!duplicated(cp$sys_no), ] # select first observation by group id (baseline)
+#nrow(cp_p)
+write.csv(cp_p, file = "E:/老人健檢/20210322/data/baseline.csv")
+
+#continuous covariates
+continuous_cov<-c("time","age","BMI","waist2","WBC","HB","Alb","TG","HDL", "UA","eGFR.y")
+
+#BASELINE DESCRIPTIVE STATISTICS-CONTINUOUS---- 
+library(data.table)
+setwd("C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\")
+rm(list=ls())
+dt<-read.csv("tdcox20191231.csv", stringsAsFactors = FALSE,na.strings=c("NA", " "))
+
+
+dt$Protein_class_new = "0"
+dt[is.na(dt$Protein),"Protein_class_new"] = NA
+dt[(grep("\\-{1}",dt$Protein)),"Protein_class_new"] = "1"
+dt[(grep("\\+/-{1}",dt$Protein)),"Protein_class_new"] = "2"
+dt[(grep("\\+{1}",dt$Protein)),"Protein_class_new"] = "2"
+dt[(grep("\\+{2}",dt$Protein)),"Protein_class_new"] = "3"
+dt[(grep("\\+{4}",dt$Protein)),"Protein_class_new"] = "3"
+dt[(grep("\\+{3}",dt$Protein)),"Protein_class_new"] = "3"
+dt[which((dt$Protein_class_new )==0),"Protein_class_new"] = NA
+dt$Protein_class_new = as.factor(dt$Protein_class_new)
+
+#summary(md$Protein_class_new)
+#All-cause deaths and mortality (%)
+dt$Death<-as.factor(ifelse(!is.na(dt$COD_DeathDay_new),1,0))
+
+
+# CREATE BASELINE DATA
+cp <- with(dt, dt[order(sys_no, med_date), ]) #SORT BY sys_no, med_date
+cp_p<-cp[!duplicated(cp$sys_no), ] # select first observation by group id (baseline)
+#nrow(cp_p)
+write.csv(cp_p, file = "baseline.csv")
+
+#continuous covariates
+continuous_cov<-c("time","age","BMI","waist2","WBC","HB","Alb","TG","HDL", "UA","eGFR.y")
+
+#Category
+
+category_cov<-c("Lung_Cancer","GI_Tract_Cancer","Hepatobilliary_Cancer",
+                "Others","Hematologic_Malignancy_Cancer","Male_prostate_Cancer","Urinary_Tract_Cacner")
+
+
+#TABLE 1: STRATIFIED BY EGFR (All participants)----
+ds<-psych::describeBy(cp_p[,c(continuous_cov)], group=cp_p$eGFR_class,range=F,skew =F,mat=F,
+                      digits=5, na.rm=T)
+ds<-do.call("rbind",ds)
+
+
+#ds
+#eGFR_class
+write.csv(ds, file = "descriptive_stat_baseline_eGFR.csv")
+
+#Overall
+ds<-psych::describe(cp_p[,c(continuous_cov)],range=F,skew =F,na.rm=T)
+write.csv(ds, file = "descriptive_stat_baseline_overall.csv")
+
+Category<-NULL
+
+for(i in 1:length(category_cov)){
+  Value_overall<-table(cp_p[,category_cov[i]])[2]
+  Value1<-table(cp_p[cp_p$eGFR_class==1,category_cov[i]])
+  Value2<-table(cp_p[cp_p$eGFR_class==2,category_cov[i]])
+  Value3<-table(cp_p[cp_p$eGFR_class==3,category_cov[i]])
+  Value4<-table(cp_p[cp_p$eGFR_class==4,category_cov[i]])
+  Percent_overall<-round(prop.table(table(cp_p[,category_cov[i]]))[2]*100,2)
+  Percent1<-round(prop.table(table(cp_p[cp_p$eGFR_class==1,category_cov[i]]))[2]*100,2)
+  Percent2<-round(prop.table(table(cp_p[cp_p$eGFR_class==2,category_cov[i]]))[2]*100,2)
+  Percent3<-round(prop.table(table(cp_p[cp_p$eGFR_class==3,category_cov[i]]))[2]*100,2)
+  Percent4<-round(prop.table(table(cp_p[cp_p$eGFR_class==4,category_cov[i]]))[2]*100,2)
+  Overall<-paste0(Value_overall," (",Percent_overall,")")
+  eGFR1<-paste0(Value1[2]," (",Percent1,")")
+  eGFR2<-paste0(Value2[2]," (",Percent2,")")
+  eGFR3<-paste0(Value3[2]," (",Percent3,")")
+  eGFR4<-paste0(Value4[2]," (",Percent4,")")
+  if(is.na(Value1[2]) |  is.na(Value2[2]) | is.na(Value3[2]) | is.na(Value4[2])){
+    P_Value<-NA
+  }else if(is.na(Value1[2]) &  is.na(Value2[2]) & is.na(Value3[2]) & is.na(Value4[2])) {
+    P_Value<-NA
+  }else{
+    test<-rbind(Value1,Value2,Value3,Value4)
+    P_Value<-chisq.test(test)$p.value
+  }
+  if(!is.na(P_Value) & P_Value<0.001){
+    P_Value="<.001"
+  }else if(is.na(P_Value)) {
+    P_Value<-NA
+  }else{
+    P_Value=round(P_Value,3)
+  }
+  Name<-category_cov[i]
+  t<-data.frame(name=Name,Overall=Overall,eGFR1=eGFR1,eGFR2=eGFR2,eGFR3=eGFR3,eGFR4=eGFR4,P= P_Value)
+  Category<-rbind(Category,t)
+}
+Category
+Value2<-c(8299,2)
+Value3<-c(39157,12)
+Value4<-c(11087,13)
+Value1<-c(3445,1)
+test<-rbind(Value2,Value3,Value4,Value1)
+chisq.test(test)$p.value
+
+
+
+#TABLE 2:STRATIFIED BY (Cancer Death)----
+cp_p_C<-cp_p
+write.csv(cp_p_C, file = "C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\cancer.csv")
+
+cp_p_C$status_allcancer<-ifelse(is.na(cp_p_C$Cancer_Site) & is.na(cp_p_C$COD_DeathDay_new),0
+                             ,ifelse(is.na(cp_p_C$Cancer_Site) & !is.na(cp_p_C$COD_DeathDay_new),2,1))
+table(cp_p_C$Cancer_Site,cp_p_C$CanDead1)
+table(cp_p_C$status_allcancer)
+ds<-psych::describeBy(cp_p_C[,c(continuous_cov)], group=cp_p_C$status_allcancer,range=F,skew =F,mat=F,
+                      digits=2, na.rm=T)
+ds<-do.call("rbind",ds)
+
+
+#ds
+#eGFR_class
+write.csv(ds, file = "C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\descriptive_stat_cancer_group.csv")
+
+#Overall
+ds<-psych::describe(cp_p_C[,c(continuous_cov)],range=F,skew =F,na.rm=T)
+write.csv(ds, file = "C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\descriptive_baseline_cancer_overall.csv")
+
+
+category_cov<-c("Sex","DM","BP","Lung_Cancer","GI_Tract_Cancer","Hepatobilliary_Cancer",
+                "Others","Hematologic_Malignancy_Cancer","Female_Cervical_Cancer",
+                "Female_Endometrial_Cancer","Female_Ovarian_Cancer","Female_Other_Cancer",
+                "Male_prostate_Cancer","Urinary_Tract_Cacner","Protein_class_new","Smoke_gp","Drink_gp","decline")
+Category<-NULL
+
+for(i in 1:length(category_cov)){
+  Value_overall<-table(cp_p[,category_cov[i]])[2]
+  Value1<-table(cp_p[cp_p_C$status_allcancer==0,category_cov[i]])
+  Value2<-table(cp_p[cp_p_C$status_allcancer==1,category_cov[i]])
+  Value3<-table(cp_p[cp_p_C$status_allcancer==2,category_cov[i]])
+  Percent_overall<-round(prop.table(table(cp_p[,category_cov[i]]))[2]*100,2)
+  Percent1<-round(prop.table(table(cp_p[cp_p_C$status_allcancer==0,category_cov[i]]))[2]*100,2)
+  Percent2<-round(prop.table(table(cp_p[cp_p_C$status_allcancer==1,category_cov[i]]))[2]*100,2)
+  Percent3<-round(prop.table(table(cp_p[cp_p_C$status_allcancer==2,category_cov[i]]))[2]*100,2)
+  Overall<-paste0(Value_overall," (",Percent_overall,")")
+  status0<-paste0(Value1[2]," (",Percent1,")")
+  status1<-paste0(Value2[2]," (",Percent2,")")
+  status2<-paste0(Value3[2]," (",Percent3,")")
+  if(is.na(Value1[2]) |  is.na(Value2[2]) |  is.na(Value3[2]) ){
+    P_Value<-NA
+  }else if(is.na(Value1[2]) &  is.na(Value2[2]) &  is.na(Value3[2])) {
+    P_Value<-NA
+  }else{
+    test<-rbind(Value1,Value2,Value3)
+    P_Value<-chisq.test(test)$p.value
+  }
+  if(!is.na(P_Value) & P_Value<0.001){
+    P_Value="<.001"
+  }else if(is.na(P_Value)) {
+    P_Value<-NA
+  }else{
+    P_Value=round(P_Value,5)
+  }
+  Name<-category_cov[i]
+  t<-data.frame(name=Name,Overall=Overall,status0=status0,status1=status1,status2=status2,P=P_Value)
+  t$P<-as.character(t$P)
+  Category<-rbind(Category,t)
+}
+
+Category
+#Protein_class_new
+prop.table(table(cp_p[cp_p_C$status_allcancer==0,"Protein_class_new"]))*100
+prop.table(table(cp_p[cp_p_C$status_allcancer==1,"Protein_class_new"]))*100
+prop.table(table(cp_p[cp_p_C$status_allcancer==2,"Protein_class_new"]))*100
+
+#t-test
+#continuous covariates
+continuous_cov<-c("time","age","BMI","waist2","WBC","HB","Alb","TG","HDL", "UA","eGFR.y")
+i=1
+Continuous_P<-NULL
+for(i in 1:length(continuous_cov)){
+  
+  P_Value<-summary(aov(as.formula(paste0(continuous_cov[i],"~factor(","status_allcancer",")")),cp_p_C))[[1]][1,5]
+  if(!is.na(P_Value) & P_Value<0.001){
+    P_Value="<.001"
+  }else{
+    P_Value=round(P_Value,3)
+  }
+  P_Value<-as.character(P_Value)
+  Name<-continuous_cov[i]
+ 
+  Continuous_P<-rbind(Continuous_P,data.frame(Name=Name,P_Value=P_Value))
+}
+Continuous_P
+
+
+
+
+#TABLE 3:Logistic regression for determinants of rapid renal function decline----
+library(data.table)
+setwd("C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\")
+
+rm(list=ls())
+md<-data.frame(fread("tdcox20191231.csv"))
+cols.factor<-c("Sex","DM","BMI_class","decline","BP","Protein_class_new","eGFR_class","Drink_gp","Smoke_gp")
+md[,cols.factor] <- lapply(md[,cols.factor], factor)
+md$logTG<-log(md$TG)
+#md1<-md
+md<- with(md, md[order(sys_no, med_date), ]) #SORT DATA
+dt<-md[!duplicated(md$sys_no), ] #SELECT FIRST OBS. BY id
+
+#CONTINUOUS VARIABLES
+cont_var<-c('age',"waist2",'BMI',"AC","HDL","eGFR.y","WBC")
+cont_new_var<-c('age_10',"waist2_10",'BMI_10',"AC_10","HDL_10",
+                "eGFR.y_10","WBC_10")
+dt1<-dt
+dt1[,cont_new_var]<-dt1[,cont_var]/10
+
+# CHANGE REFERENCE LEVEL FOR VARIABLE SEX
+dt1$Sex = relevel(dt1$Sex, ref ='男')
+summary(factor(dt1$Cancer_Site))
+
+covariates<-c("age","Sex" ,"BP","waist2","BMI ","AC","HDL","logTG","Alb","HB", "eGFR.y", "Protein_class_new")
+
+#LOGISTICS REGRESSION _10 ----- 
+model <- glm(decline~age_10+Sex+BP+waist2_10+BMI_10 +DM+HDL_10+
+               logTG+Alb+HB+eGFR.y_10+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1)
+#stratified by eGfR class
+model1 <- glm(decline~age_10+Sex+BP+waist2_10+BMI_10 +DM+HDL_10+
+               logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==1,])
+model2 <- glm(decline~age_10+Sex+BP+waist2_10+BMI_10 +DM+HDL_10+
+                logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==2,])
+model3 <- glm(decline~age_10+Sex+BP+waist2_10+BMI_10 +DM+HDL_10+
+                logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==3,])
+model4 <- glm(decline~age_10+Sex+BP+waist2_10+BMI_10 +DM+HDL_10+
+                logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==4,])
+
+#car::vif(model)
+
+table0<-cbind(paste0(round(exp(summary(model)$coefficient[,1]),2)," (",round(exp(confint(model)),2)[,1],", ",round(exp(confint(model)),2)[,2],")"),
+              as.numeric(round(summary(model)$coefficient[,"Pr(>|z|)"],3)))
+
+table1<-cbind(paste0(round(exp(summary(model1)$coefficient[,1]),2)," (",round(exp(confint(model1)),2)[,1],", ",round(exp(confint(model1)),2)[,2],")"),
+      as.numeric(round(summary(model1)$coefficient[,"Pr(>|z|)"],3)))
+
+table2<-cbind(paste0(round(exp(summary(model2)$coefficient[,1]),2)," (",round(exp(confint(model2)),2)[,1],", ",round(exp(confint(model2)),2)[,2],")"),
+              as.numeric(round(summary(model2)$coefficient[,"Pr(>|z|)"],3)))
+
+table3<-cbind(paste0(round(exp(summary(model3)$coefficient[,1]),2)," (",round(exp(confint(model3)),2)[,1],", ",round(exp(confint(model3)),2)[,2],")"),
+              as.numeric(round(summary(model3)$coefficient[,"Pr(>|z|)"],3)))
+
+table4<-cbind(paste0(round(exp(summary(model4)$coefficient[,1]),2)," (",round(exp(confint(model4)),2)[,1],", ",round(exp(confint(model4)),2)[,2],")"),
+              as.numeric(round(summary(model4)$coefficient[,"Pr(>|z|)"],3)))
+
+write.csv(rbind(table0,table1,table2,table3,table4),"C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\logistic_10.csv")
+#LOGISTICS REGRESSION  ----- 
+model <- glm(decline~age+Sex+BP+waist2+BMI +DM+HDL+
+               logTG+Alb+HB+eGFR.y+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1)
+#stratified by eGfR class
+model1 <- glm(decline~age+Sex+BP+waist2+BMI +DM+HDL+
+                logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==1,])
+model2 <- glm(decline~age+Sex+BP+waist2+BMI +DM+HDL+
+                logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==2,])
+model3 <- glm(decline~age+Sex+BP+waist2+BMI +DM+HDL+
+                logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==3,])
+model4 <- glm(decline~age+Sex+BP+waist2+BMI +DM+HDL+
+                logTG+Alb+HB+Protein_class_new+Smoke_gp+Drink_gp,family = binomial(link=logit),dt1[dt1$eGFR_class==4,])
+
+#car::vif(model)
+
+table0<-cbind(paste0(round(exp(summary(model)$coefficient[,1]),2)," (",round(exp(confint(model)),2)[,1],", ",round(exp(confint(model)),2)[,2],")"),
+              as.numeric(round(summary(model)$coefficient[,"Pr(>|z|)"],3)))
+
+table1<-cbind(paste0(round(exp(summary(model1)$coefficient[,1]),2)," (",round(exp(confint(model1)),2)[,1],", ",round(exp(confint(model1)),2)[,2],")"),
+              as.numeric(round(summary(model1)$coefficient[,"Pr(>|z|)"],3)))
+
+table2<-cbind(paste0(round(exp(summary(model2)$coefficient[,1]),2)," (",round(exp(confint(model2)),2)[,1],", ",round(exp(confint(model2)),2)[,2],")"),
+              as.numeric(round(summary(model2)$coefficient[,"Pr(>|z|)"],3)))
+
+table3<-cbind(paste0(round(exp(summary(model3)$coefficient[,1]),2)," (",round(exp(confint(model3)),2)[,1],", ",round(exp(confint(model3)),2)[,2],")"),
+              as.numeric(round(summary(model3)$coefficient[,"Pr(>|z|)"],3)))
+
+table4<-cbind(paste0(round(exp(summary(model4)$coefficient[,1]),2)," (",round(exp(confint(model4)),2)[,1],", ",round(exp(confint(model4)),2)[,2],")"),
+              as.numeric(round(summary(model4)$coefficient[,"Pr(>|z|)"],3)))
+
+write.csv(rbind(table0,table1,table2,table3,table4),"C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\logistic.csv")
+
+
+# TABLE 4: MULTIVARIATE ----
+cont_new_var<-c('age_10',"waist2_10",'BMI_10',"AC_10","HDL_10",
+                "eGFR.y_10","WBC_10")
+library(survival)
+library(rms) 
+#Survival_10 ----
+td.Cox <- coxph(Surv(time, CanDead1) ~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10+ logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp , data = dt1)
+
+##stratified by eGfR class
+
+td.Cox1 <- coxph(Surv(time, CanDead1) ~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==1,])
+td.Cox2 <- coxph(Surv(time, CanDead1) ~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==2,])
+td.Cox3 <- coxph(Surv(time, CanDead1) ~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==3,])
+td.Cox4 <- coxph(Surv(time, CanDead1) ~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==4,])
+
+
+table0<-cbind(paste0(round(summary(td.Cox)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox)[7]$coef[,5],3))
+
+table1<-cbind(paste0(round(summary(td.Cox1)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox1)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox1)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox1)[7]$coef[,5],3))
+
+table2<-cbind(paste0(round(summary(td.Cox2)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox2)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox2)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox2)[7]$coef[,5],3))
+table3<-cbind(paste0(round(summary(td.Cox3)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox3)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox3)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox3)[7]$coef[,5],3))
+table4<-cbind(paste0(round(summary(td.Cox4)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox4)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox4)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox4)[7]$coef[,5],3))
+
+write.csv(rbind(table0,table1,table2,table3,table4),"C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\Survival_10.csv")
+
+#Survival----
+td.Cox <- coxph(Surv(time, CanDead1) ~ decline+age+Sex+ DM +BP+waist2+BMI +WBC+HB+HDL+ logTG + Alb + UA + eGFR.y + Protein_class_new+Smoke_gp+Drink_gp , data = dt1)
+rms::vif(td.Cox)
+##stratified by eGfR class
+td.Cox1 <- coxph(Surv(time, CanDead1) ~ decline+age+Sex+ DM +BP+waist2+BMI +WBC+HB+HDL+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==1,])
+td.Cox2 <- coxph(Surv(time, CanDead1) ~ decline+age+Sex+ DM +BP+waist2+BMI +WBC+HB+HDL+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==2,])
+td.Cox3 <- coxph(Surv(time, CanDead1) ~ decline+age+Sex+ DM +BP+waist2+BMI +WBC+HB+HDL+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==3,])
+td.Cox4 <- coxph(Surv(time, CanDead1) ~ decline+age+Sex+ DM +BP+waist2+BMI +WBC+HB+HDL+ logTG + Alb + UA  + Protein_class_new+Smoke_gp+Drink_gp , data = dt1[dt1$eGFR_class==4,])
+
+
+table0<-cbind(paste0(round(summary(td.Cox)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox)[7]$coef[,5],3))
+
+table1<-cbind(paste0(round(summary(td.Cox1)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox1)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox1)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox1)[7]$coef[,5],3))
+
+table2<-cbind(paste0(round(summary(td.Cox2)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox2)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox2)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox2)[7]$coef[,5],3))
+table3<-cbind(paste0(round(summary(td.Cox3)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox3)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox3)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox3)[7]$coef[,5],3))
+table4<-cbind(paste0(round(summary(td.Cox4)[8]$conf.int[,c(1)],2)," (",round(summary(td.Cox4)[8]$conf.int[,c(3)],2),", ",
+                     round(summary(td.Cox4)[8]$conf.int[,c(4)],2),")"),round(summary(td.Cox4)[7]$coef[,5],3))
+
+write.csv(rbind(table0,table1,table2,table3,table4),"C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\Survival.csv")
+
+#Figure2 ----
+library(data.table)
+library(survival)
+setwd("C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\")
+
+rm(list=ls())
+md<-data.frame(fread("tdcox20191231.csv"))
+cols.factor<-c("Sex","DM","BMI_class","decline","BP","Protein_class_new","eGFR_class","Drink_gp","Smoke_gp")
+md[,cols.factor] <- lapply(md[,cols.factor], factor)
+md$logTG<-log(md$TG)
+#md1<-md
+md<- with(md, md[order(sys_no, med_date), ]) #SORT DATA
+dt<-md[!duplicated(md$sys_no), ] #SELECT FIRST OBS. BY id
+
+#CONTINUOUS VARIABLES
+cont_var<-c('age',"waist2",'BMI',"AC","HDL","eGFR.y","WBC")
+cont_new_var<-c('age_10',"waist2_10",'BMI_10',"AC_10","HDL_10",
+                "eGFR.y_10","WBC_10")
+dt1<-dt
+dt1[,cont_new_var]<-dt1[,cont_var]
+
+#All Cancer
+dt1$status_allcancer<-ifelse(is.na(dt1$Cancer_Site) & is.na(dt1$COD_DeathDay_new),0
+                             ,ifelse(is.na(dt1$Cancer_Site) & !is.na(dt1$COD_DeathDay_new),0,1))
+
+table(dt1$status_allcancer)
+#ALL
+td.Cox_ALL <- coxph(Surv(time,status_allcancer)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                   + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp , data = dt1)
+
+ALL<-do.call(rbind, Map(cbind, summary(td.Cox_ALL)[7], summary(td.Cox_ALL)[8]))[1,c(2,8,9)]
+#GI tract
+td.Cox_GI <- coxph(Surv(time,GI_Tract_Cancer)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                   + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp , data = dt1)
+GI<-do.call(rbind, Map(cbind, summary(td.Cox_GI)[7], summary(td.Cox_GI)[8]))[1,c(2,8,9)]
+#Hepatobilliary
+td.Cox_H <- coxph(Surv(time,Hepatobilliary_Cancer)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp, data = dt1)
+H<-do.call(rbind, Map(cbind, summary(td.Cox_H)[7], summary(td.Cox_H)[8]))[1,c(2,8,9)]
+
+#Lung_Cancer
+td.Cox_Lung <- coxph(Surv(time, Lung_Cancer)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp , data = dt1)
+Lung<-do.call(rbind, Map(cbind, summary(td.Cox_Lung )[7], summary(td.Cox_Lung )[8]))[1,c(2,8,9)]
+
+#Male_prostate_Cancer
+td.Cox_MPC <- coxph(Surv(time, Male_prostate_Cancer)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp , data = dt1)
+MPC<-do.call(rbind, Map(cbind, summary(td.Cox_MPC )[7], summary(td.Cox_MPC )[8]))[1,c(2,8,9)]
+
+#Urinary_Tract_Cacner
+td.Cox_UTC <- coxph(Surv(time, Urinary_Tract_Cacner)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp, data = dt1)
+UTC<-do.call(rbind, Map(cbind, summary(td.Cox_UTC)[7], summary(td.Cox_UTC)[8]))[1,c(2,8,9)]
+
+#Hematologic_Malignancy_Cancer
+td.Cox_HMC <- coxph(Surv(time, Hematologic_Malignancy_Cancer)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                    + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp, data = dt1)
+HMC<-do.call(rbind, Map(cbind, summary(td.Cox_HMC)[7], summary(td.Cox_HMC)[8]))[1,c(2,8,9)]
+
+# Other Cancer
+td.Cox_Other <- coxph(Surv(time, Others)~ decline+age_10+Sex+ DM +BP+waist2_10+BMI_10 +WBC_10+HB+HDL_10
+                + logTG + Alb + UA + eGFR.y_10 + Protein_class_new+Smoke_gp+Drink_gp , data = dt1)
+Other<-do.call(rbind, Map(cbind, summary(td.Cox_Other)[7], summary(td.Cox_Other)[8]))[1,c(2,8,9)]
+
+
+table<-rbind(ALL,GI,H,Lung,MPC,UTC,HMC,Other)
+
+rownames(table)<-c("All Cancer", "GI Tract Cancer","Hepatobiliary Cacner","Lung Cancer",
+                   "Prostate Cancer","Urinary Tract Cancer","Hematologic Malignancy","Other Cancers")
+write.csv(table,"Cox risk_not adjust.csv")
+
+dt_decline<-read.csv(file="Cox risk.csv",header =F)
+
+library(forestplot)
+library(extrafont)
+font_import()
+loadfonts(device = "win")
+windowsFonts(Times=windowsFont("Times New Roman"))
+
+tiff(file = "FIGURE_2.tiff", width = 3000, height = 1200, res = 300)
+
+unbold<-nrow(dt_decline)-1
+forestplot(label=as.matrix(dt_decline[,1:2]), 
+           mean=dt_decline$V3,
+           lower=dt_decline$V4, 
+           upper=dt_decline$V5, 
+           boxsize=0.2,
+           is.summary=c(TRUE, rep(FALSE,unbold)),
+           xticks = seq(0.5,6.5,by=0.5),
+           col = fpColors(lines="black", box="black"),
+           ci.vertices = TRUE,
+           colgap = unit(0.03,'npc'),
+           grid = structure(c(1), gp = gpar(col = "black", lty = 3)),
+           hrzl_lines= TRUE,
+           lineheight = unit(1.1,"cm"),
+           graphwidth = "auto",
+           lwd.ci = 1.5,  #line width
+           txt_gp=fpTxtGp(label = gpar(cex = 1.25,fontfamily = "Times"),
+                          title = gpar(cex = 1),
+                          ticks = gpar(cex = 1.25),
+                          xlab = gpar(cex = 0.7)))
+
+dev.off()
+
+
+
+
+#Appendix 1 ----
+
+
+md<-read.csv("C:\\Users\\奕碁\\Desktop\\老人健檢20210322\\Adjusted_Data\\tdcox20191231.csv", stringsAsFactors = FALSE,na.strings=c("NA", " "))
+cols.factor<-c("Sex","DM","BMI_class","decline","BP","Protein_class_new","eGFR_class","Drink_gp","Smoke_gp")
+md[,cols.factor] <- lapply(md[,cols.factor], factor)
+md$logTG<-log(md$TG)
+
+#summary(md$Protein_class_new)
+
+#CREATE BASELINE DATA
+#md1<-md
+md<- with(md, md[order(sys_no, med_date), ])
+# select first observation by group id (baseline)
+dt<-md[!duplicated(md$sys_no), ]
+# covariates_cd<-c("CanDead1","Lung_Cancer","GI_Tract_Cancer","Hepatobilliary_Cancer","Hematologic_Malignancy_Cancer","Others","Gynecological_Cancer","Urinary_Tract_Cacner","Head_And_Neck","Breast_Cancer","decline")
+cont_var<-c('age',"waist2",'BMI',"AC","HDL","eGFR.y","WBC")
+dt1<-dt
+dt1[,cont_var]<-dt1[,cont_var]
+dt1$Sex = relevel(dt1$Sex, ref ='男')
+
+library(cmprsk)
+#All Cancer
+dt1$status_allcancer<-ifelse(is.na(dt1$Cancer_Site) & is.na(dt1$COD_DeathDay_new),0
+                             ,ifelse(is.na(dt1$Cancer_Site) & !is.na(dt1$COD_DeathDay_new),2,1))
+
+#summary(as.factor(dt1[,"status_allcancer"]))
+
+X <- model.matrix(object = ~ decline+age+Sex+ DM +BP+waist2+BMI +WBC+HB+HDL+ logTG + Alb + UA + eGFR.y + Protein_class_new+Smoke_gp+Drink_gp, data = dt1)[,-1]
+mod_All<-crr(ftime=dt1$time, fstatus=dt1$status_allcancer,cov1=X, ###matrix of covariates
+          failcode = 1, #failure type of interest
+          cencode = 0 )
+summary(mod_All)
+#GI tract
+dt1$status_GI<-NA
+dt1[is.na(dt1$COD_DeathDay_new),"status_GI"]=0
+dt1[which(!is.na(dt1$COD_DeathDay_new)),"status_GI"]=2
+dt1[which(dt1$Cancer_Site=="GI_Tract_Cancer" & !is.na(dt1$COD_DeathDay_new)),"status_GI"]=1
+
+mod_GI<-crr(ftime=dt1$time, fstatus=dt1$status_GI,cov1=X, ###matrix of covariates
+          failcode = 1, #failure type of interest
+          cencode = 0 )
+
+#Hepatobiliary Cancer
+table(dt1$Cancer_Site)
+dt1$status_HC<-NA
+dt1[is.na(dt1$COD_DeathDay_new),"status_HC"]=0
+dt1[which(!is.na(dt1$COD_DeathDay_new)),"status_HC"]=2
+dt1[which(dt1$Cancer_Site=="Hepatobilliary_Cancer" & !is.na(dt1$COD_DeathDay_new)),"status_HC"]=1
+
+mod_HC<-crr(ftime=dt1$time, fstatus=dt1$status_HC,cov1=X, ###matrix of covariates
+            failcode = 1, #failure type of interest
+            cencode = 0 )
+
+
+
+#Lung
+dt1$status_Lung<-NA
+dt1[is.na(dt1$COD_DeathDay_new),"status_Lung"]=0
+dt1[which(!is.na(dt1$COD_DeathDay_new)),"status_Lung"]=2
+dt1[which(dt1$Cancer_Site=="Lung_Cancer" & !is.na(dt1$COD_DeathDay_new)),"status_Lung"]=1
+
+mod_Lung<-crr(ftime=dt1$time, fstatus=dt1$status_Lung,cov1=X, ###matrix of covariates
+              failcode = 1, #failure type of interest
+              cencode = 0 )
+
+#Male_prostate_Cancer
+dt1$status_MPC<-NA
+dt1[is.na(dt1$COD_DeathDay_new),"status_MPC"]=0
+dt1[which(!is.na(dt1$COD_DeathDay_new)),"status_MPC"]=2
+dt1[which(dt1$Cancer_Site=="Male_prostate_Cancer" & !is.na(dt1$COD_DeathDay_new)),"status_MPC"]=1
+
+mod_MPC<-crr(ftime=dt1$time, fstatus=dt1$status_MPC,cov1=X, ###matrix of covariates
+          failcode = 1, #failure type of interest
+          cencode = 0 )
+
+#Urinary_Tract_Cacner
+dt1$status_U<-NA
+dt1[is.na(dt1$COD_DeathDay_new),"status_U"]=0
+dt1[which(!is.na(dt1$COD_DeathDay_new)),"status_U"]=2
+dt1[which(dt1$Cancer_Site=="Urinary_Tract_Cacner" & !is.na(dt1$COD_DeathDay_new)),"status_U"]=1
+
+mod_U<-crr(ftime=dt1$time, fstatus=dt1$status_U,cov1=X, ###matrix of covariates
+          failcode = 1, #failure type of interest
+          cencode = 0 )
+#Hematologic_Malignancy_Cancer
+dt1$status_Blood<-NA
+dt1[is.na(dt1$COD_DeathDay_new),"status_Blood"]=0
+dt1[which(!is.na(dt1$COD_DeathDay_new)),"status_Blood"]=2
+dt1[which(dt1$Cancer_Site=="Hematologic_Malignancy_Cancer" & !is.na(dt1$COD_DeathDay_new)),"status_Blood"]=1
+
+mod_Blood<-crr(ftime=dt1$time, fstatus=dt1$status_Blood,cov1=X, ###matrix of covariates
+               failcode = 1, #failure type of interest
+               cencode = 0 )
+
+
+#Others
+dt1$status_Others<-NA
+dt1[is.na(dt1$COD_DeathDay_new),"status_Others"]=0
+dt1[which(!is.na(dt1$COD_DeathDay_new)),"status_Others"]=2
+dt1[which(dt1$Cancer_Site=="Others" & !is.na(dt1$COD_DeathDay_new)),"status_Others"]=1
+mod_Others<-crr(ftime=dt1$time, fstatus=dt1$status_Others,cov1=X, ###matrix of covariates
+          failcode = 1, #failure type of interest
+          cencode = 0 )
+
+ALL<-summary(mod_All)[7]$conf.int[1,c(1,3,4)]
+GI_Tract<-summary(mod_GI)[7]$conf.int[1,c(1,3,4)]
+HC<-summary(mod_HC)[7]$conf.int[1,c(1,3,4)]
+Lung<-summary(mod_Lung)[7]$conf.int[1,c(1,3,4)]
+MPC<-summary(mod_MPC)[7]$conf.int[1,c(1,3,4)]
+UTC<-summary(mod_U)[7]$conf.int[1,c(1,3,4)]
+HMC<-summary(mod_Blood)[7]$conf.int[1,c(1,3,4)]
+Others<-summary(mod_Others)[7]$conf.int[1,c(1,3,4)]
+
+decline_table<-rbind(ALL,GI_Tract,HC,Lung,MPC,UTC,HMC,Others)
+
+rownames(decline_table)<-c("All Cancer", "GI Tract Cancer","Hepatobiliary Cacner","Lung Cancer",
+                           "Prostate Cancer","Urinary Tract Cancer","Hematologic Malignancy","Other Cancers")
+write.csv(decline_table,"Competing risk.csv")                   
+
+
+
+#IMPORT DATA SET
+dt_decline<-read.csv(file="Competing.csv",header =F)
+
+library(forestplot)
+library(extrafont)
+font_import()
+loadfonts(device = "win")
+windowsFonts(Times=windowsFont("Times New Roman"))
+
+tiff(file = "Appendix1.tiff", width = 3000, height = 1200, res = 300)
+unbold<-nrow(dt_decline)-1
+forestplot(label=as.matrix(dt_decline[,1:2]), 
+           mean=dt_decline$V3,
+           lower=dt_decline$V4, 
+           upper=dt_decline$V5, 
+           boxsize=0.2,
+           is.summary=c(TRUE, rep(FALSE,unbold)),
+           xticks = seq(0,6.5,by=0.5),
+           col = fpColors(lines="black", box="black"),
+           ci.vertices = TRUE,
+           colgap = unit(0.03,'npc'),
+           grid = structure(c(1), gp = gpar(col = "black", lty = 3)),
+           hrzl_lines= TRUE,
+           lineheight = unit(1.1,"cm"),
+           graphwidth = "auto",
+           lwd.ci = 1.5,  #line width
+           txt_gp=fpTxtGp(label = gpar(cex = 1.25,fontfamily = "Times"),
+                          title = gpar(cex = 1),
+                          ticks = gpar(cex = 1.25),
+                          xlab = gpar(cex = 1)))
+
+dev.off()
+
+
+#---------------------------------------------------------------------
+#                        TABLE 1: STRATIFIED BY EGFR (All participants)
+#---------------------------------------------------------------------
+ds<-psych::describeBy(cp_p[,c(continuous_cov)], group=cp_p$eGFR_class,range=F,skew =F,mat=F,
+                      digits=5, na.rm=T)
+ds<-do.call("rbind",ds)
+#ds
+#eGFR_class
+write.csv(ds, file = "E:/老人健檢/20210322/excel/descriptive_stat_baseline_eGFR.csv")
+
+#Overall
+ds<-psych::describe(cp_p[,c(continuous_cov)],range=F,skew =F,na.rm=T)
+write.csv(ds, file = "E:/老人健檢/20210322/excel/descriptive_stat_baseline_overall.csv")
+
+
+
+
+#---------------------------------------------------------------------
+#                        TABLE 2:STRATIFIED BY DECLINE (Cancer Death)
+#---------------------------------------------------------------------
+cp_p_C<-cp_p[cp_p$CanDead1=="1",]
+write.csv(cp_p_C, file = "E:/老人健檢/20210322/data/cancer.csv")
+
+ds<-psych::describeBy(cp_p_C[,c(continuous_cov)], group=cp_p_C$decline,range=F,skew =F,mat=F,
+                      digits=5, na.rm=T)
+ds<-do.call("rbind",ds)
+
+
+#ds
+#eGFR_class
+write.csv(ds, file = "E:/老人健檢/20210322/excel/descriptive_stat_baseline_decline.csv")
+
+#Overall
+ds<-psych::describe(cp_p_C[,c(continuous_cov)],range=F,skew =F,na.rm=T)
+write.csv(ds, file = "E:/老人健檢/20210322/excel/descriptive_baseline_cancer_overall.csv")
+
+
+
+
