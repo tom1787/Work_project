@@ -1,0 +1,494 @@
+##Data Clean and deal with-----
+setwd("F:\\H107217_1\\tom_Asthma_Severe\\plink\\Control\\")
+
+#BMI
+SNP_meta_BMI<-data.frame(read.table("SNP_meta_BMI.raw",header = T))
+
+#delete 
+SNP_meta_BMI<-SNP_meta_BMI[,-c(1,3:6,seq(8,ncol(SNP_meta_BMI),by=2))]
+Weight_BMI<-c(log(1.46172448051023),log(1.75541532880838),log(1.31957906255826),
+              log(0.727171139307669),log(0.690271918691551),log(0.762837251292979),log(0.76413688024798))
+#Affx.18912871_C==rs720631 dominant
+type_BMI<-c("Dominant","Dominant","Dominant","Dominant","Dominant","Dominant","Dominant")
+snp_BMI<-c("Affx.18912871_C","rs117777319_C","rs7323765_C","rs318773_G","rs17531088_C","rs72971630_A","rs2075050_G")
+SNP_meta_BMI<-SNP_meta_BMI[,c(1,match(snp_BMI,names(SNP_meta_BMI)))]
+
+
+#WHtR          
+SNP_meta_WHtR<-data.frame(read.table("SNP_meta_WHtR.raw",header = T))
+
+#delete 
+SNP_meta_WHtR<-SNP_meta_WHtR[,-c(1,3:6,seq(8,ncol(SNP_meta_WHtR),by=2))]
+Weight_WHtR<-c(log(1.33762708986859),log(1.21058531435261),log(1.28363377979697),log(1.48514373381788),log(1.39587803523245),log(1.32235858658597),
+               log(0.795311833455699),log(0.634174542144325))
+               
+
+type_WHtR<-c("Dominant","Additive","Additive","Dominant","Dominant","Dominant"
+             ,"Additive","Dominant")
+
+snp_WHtR<-c("rs11735097_G","rs26956_A","rs12153582_C","rs6020323_G","rs16936559_A","rs4873644_C",
+            "rs6533014_G","rs75080842_C")
+
+SNP_meta_WHtR<-SNP_meta_WHtR[,c(1,match(snp_WHtR,names(SNP_meta_WHtR)))]
+
+c<-merge(SNP_meta_BMI,SNP_meta_WHtR,by="IID")
+
+
+#Asthma related score
+setwd("F:\\H107217_1\\tom_Asthma_Severe\\plink\\Meta_Asthma")
+#Analysis
+SNP_meta_Asthma<-data.frame(read.table("SNP_meta_Asthma1.raw",header = T))
+#delete 
+SNP_meta_Asthma<-SNP_meta_Asthma[,-c(1,3:6,seq(8,ncol(SNP_meta_Asthma),by=2))]
+
+#Asthma_BMI
+Weight_Asthma_BMI<-c(log(1.20907798433772),log(1.31388956453508),log(1.27278695565947),log(1.24340344868767),log(1.23697046780317),
+                     log(0.792094250299475),log(0.597388724715056),log(0.758218107182269),log(0.673020426042693))
+Asthma_BMI<-c("rs4688261_A","rs3800570_G","rs4497664_C","rs437587_T","rs1926075_C",
+              "rs4663568_G","rs210774_C","rs981710_C","rs10143946_G")
+
+type_Asthma_BMI<-c("Additive","Additive","Additive","Additive","Additive",
+                   "Additive","Recessive","Recessive","Recessive")
+
+#Asthma_WHtR
+
+Weight_Asthma_WHtR<-c(log(1.20178242229431),log(1.35274380201375),log(1.28000666998722),log(1.23311355853743),log(1.21644516451591),
+                      log(0.767294341911714),log(0.602113193125837),log(0.747930096512906),log(0.678817823663639 ))
+Asthma_WHtR<-c("rs4688261_A","rs3800570_G","rs4497664_C","rs437587_T","rs1926075_C",
+               "rs4663568_G","rs210774_C","rs981710_C","rs10143946_G")
+
+type_Asthma_WHtR<-c("Additive","Additive","Additive","Additive","Additive",
+                    "Recessive","Recessive","Recessive","Recessive")
+
+SNP_meta_Asthma<-SNP_meta_Asthma[,c(1,match(Asthma_BMI,names(SNP_meta_Asthma)))]
+
+d<-merge(c,SNP_meta_Asthma,by = "IID")
+names(d)
+Control<-data.frame(read.csv("F:\\H107217_1\\tom_Asthma_Severe\\match_control_1.csv"))
+Control<-Control[order(Control$IID),c("IID","control_people","twbage","SEX","X_MatchID_1","asthma_parent","out_count_all","quick_count_all","Steroid_all","Bmi","class_Bmi","class_wc","BODY_WEIGHT","wc_hei","wc_hei_class")]
+
+Control$Bmi_new[Control$Bmi<22.0984193]<-1
+Control$Bmi_new[Control$Bmi>=22.0984193 & Control$Bmi<24.4637050]<-2
+Control$Bmi_new[Control$Bmi>=24.4637050 & Control$Bmi<26.8931638]<-3
+Control$Bmi_new[Control$Bmi>=26.8931638]<-4
+
+Control<-merge(Control,d,by = "IID",all.x = T)
+
+##Score Weight----
+##Obesity SNP----
+#BMI overall
+score_BMI_overall<-NULL
+for(i in 1:length(Weight_BMI)){
+  snp<-Control[,names(Control)==snp_BMI[i]]
+  if(type_BMI[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_BMI[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_BMI[i]
+  score_BMI_overall<-cbind(score_BMI_overall,snp)
+}
+score_BMI_overall<-rowSums(score_BMI_overall,na.rm = T)
+
+#BMI risk
+score_BMI_risk<-NULL
+for(i in 1:3){
+  snp<-Control[,names(Control)==snp_BMI[i]]
+  if(type_BMI[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_BMI[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_BMI[i]
+  score_BMI_risk<-cbind(score_BMI_risk,snp)
+}
+score_BMI_risk<-rowSums(score_BMI_risk,na.rm = T)
+
+#BMI protect
+score_BMI_protect<-NULL
+for(i in 4:length(Weight_BMI)){
+  snp<-Control[,names(Control)==snp_BMI[i]]
+  if(type_BMI[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_BMI[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_BMI[i]
+  score_BMI_protect<-cbind(score_BMI_protect,snp)
+}
+score_BMI_protect<-rowSums(score_BMI_protect,na.rm = T)
+
+
+
+
+#WHtR overall
+score_WHtR_overall<-NULL
+for(i in 1:length(Weight_WHtR)){
+  snp<-Control[,names(Control)==snp_WHtR[i]]
+  if(type_WHtR[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_WHtR[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_WHtR[i]
+  score_WHtR_overall<-cbind(score_WHtR_overall,snp)
+}
+score_WHtR_overall<-rowSums(score_WHtR_overall,na.rm = T)
+
+#WHtR risk
+score_WHtR_risk<-NULL
+for(i in 1:6){
+  snp<-Control[,names(Control)==snp_WHtR[i]]
+  if(type_WHtR[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_WHtR[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_WHtR[i]
+  score_WHtR_risk<-cbind(score_WHtR_risk,snp)
+}
+score_WHtR_risk<-rowSums(score_WHtR_risk,na.rm = T)
+
+#WHtR protect
+score_WHtR_protect<-NULL
+for(i in 7:length(Weight_WHtR)){
+  snp<-Control[,names(Control)==snp_WHtR[i]]
+  if(type_WHtR[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_WHtR[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_WHtR[i]
+  score_WHtR_protect<-cbind(score_WHtR_protect,snp)
+}
+score_WHtR_protect<-rowSums(score_WHtR_protect,na.rm = T)
+
+
+##Asthma SNP----
+#Asthma_BMI
+score_Asthma_BMI_overall<-NULL
+for(i in 1:length(Weight_Asthma_BMI)){
+  snp<-Control[,names(Control)==Asthma_BMI[i]]
+  if(type_Asthma_BMI[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_Asthma_BMI[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_Asthma_BMI[i]
+  score_Asthma_BMI_overall<-cbind(score_Asthma_BMI_overall,snp)
+}
+score_Asthma_BMI_overall<-rowSums(score_Asthma_BMI_overall,na.rm = T)
+
+#Asthma_BMI risk
+score_Asthma_BMI_risk<-NULL
+for(i in 1:5){
+  snp<-Control[,names(Control)==Asthma_BMI[i]]
+  if(type_Asthma_BMI[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_Asthma_BMI[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_Asthma_BMI[i]
+  score_Asthma_BMI_risk<-cbind(score_Asthma_BMI_risk,snp)
+}
+score_Asthma_BMI_risk<-rowSums(score_Asthma_BMI_risk,na.rm = T)
+
+#Asthma_BMI protect
+score_Asthma_BMI_protect<-NULL
+for(i in 6:length(Weight_Asthma_BMI)){
+  snp<-Control[,names(Control)==Asthma_BMI[i]]
+  if(type_Asthma_BMI[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_Asthma_BMI[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_Asthma_BMI[i]
+  score_Asthma_BMI_protect<-cbind(score_Asthma_BMI_protect,snp)
+}
+score_Asthma_BMI_protect<-rowSums(score_Asthma_BMI_protect,na.rm = T)
+
+
+#Asthma_WHtR
+score_Asthma_WHtR_overall<-NULL
+for(i in 1:length(Weight_Asthma_WHtR)){
+  snp<-Control[,names(Control)==Asthma_WHtR[i]]
+  if(type_Asthma_WHtR[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_Asthma_WHtR[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_Asthma_WHtR[i]
+  score_Asthma_WHtR_overall<-cbind(score_Asthma_WHtR_overall,snp)
+}
+score_Asthma_WHtR_overall<-rowSums(score_Asthma_WHtR_overall,na.rm = T)
+
+#Asthma_WHtR risk
+score_Asthma_WHtR_risk<-NULL
+for(i in 1:5){
+  snp<-Control[,names(Control)==Asthma_WHtR[i]]
+  if(type_Asthma_WHtR[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_Asthma_WHtR[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_Asthma_WHtR[i]
+  score_Asthma_WHtR_risk<-cbind(score_Asthma_WHtR_risk,snp)
+}
+score_Asthma_WHtR_risk<-rowSums(score_Asthma_WHtR_risk,na.rm = T)
+
+
+#Asthma_WHtR protect
+score_Asthma_WHtR_protect<-NULL
+for(i in 6:length(Weight_Asthma_WHtR)){
+  snp<-Control[,names(Control)==Asthma_WHtR[i]]
+  if(type_Asthma_WHtR[i]=="Dominant"){
+    snp[snp==1 | snp==2]<-1
+    snp[snp==0]<-0
+  }else if (type_Asthma_WHtR[i]=="Recessive"){
+    snp[snp==0 | snp==1]<-0
+    snp[snp==2]<-1
+  }
+  snp<-snp*Weight_Asthma_WHtR[i]
+  score_Asthma_WHtR_protect<-cbind(score_Asthma_WHtR_protect,snp)
+}
+score_Asthma_WHtR_protect<-rowSums(score_Asthma_WHtR_protect,na.rm = T)
+
+
+Control<-cbind(Control,
+               score_BMI_overall,score_BMI_risk,score_BMI_protect,
+               score_WHtR_overall,score_WHtR_risk,score_WHtR_protect,
+               score_Asthma_BMI_overall,score_Asthma_BMI_risk,score_Asthma_BMI_protect,
+               score_Asthma_WHtR_overall,score_Asthma_WHtR_risk,score_Asthma_WHtR_protect)
+
+rm(list = ls()[-4])
+
+
+##ROC----
+
+library(survival)
+#ROC AUC
+source("E:\\H107217\\Tom\\code\\WeightROC,AUC.R")
+x<-function(formula, Control){
+  library(survival)
+  model<-clogit(formula, data=Control)
+  pred<-predict(model, type="expected")
+  ROC<-WeightedROC(pred, Control$control_people,
+                   rep(1, dim(Control)[1]))
+  AUC <- WeightedAUC(WeightedROC(pred, Control$control_people, rep(1, dim(Control)[1])))
+  return(data.frame(TPR=ROC$TPR,FPR=ROC$FPR,AUC))
+}
+
+#plot
+p<-function(line,title){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=c("#fea556","#ffaaad","#fc7a01","#e90003")
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],Control)$FPR,x(line[[i]],Control)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste("Model ",i,"=",sep =""),sprintf("%.2f",x(line[[i]],Control)$AUC[1]),sep =" ")
+  }
+  legend(0.7,0.6,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+#M1: #fea556 RGB (254,165,165) ?L??
+#M2: #fc7a01 RGB (252,122,1)?`??
+#M3: #9ae696 RGB (154,230,150)?L??
+#M4: #00a65a RGB (0,166,90)?`??
+#M5: #ffaaad RGB (255,170,173)????
+#M6: #e90003 RGB (233,0,3)??
+
+p1<-function(line,title){
+  plot(c(0.0:1.0),c(0.0:1.0),type="n",lwd=2,xlab="",ylab="")
+  c=c("#fea556","#fc7a01","#9ae696","#00a65a","#ffaaad","#e90003")
+  AUC<-NA
+  for(i in 1:length(line)){
+    lines(x(line[[i]],Control)$FPR,x(line[[i]],Control)$TPR,col=c[i],lwd=2)
+    AUC[i]<-paste(paste("Model ",i,"=",sep =""),sprintf("%.2f",x(line[[i]],Control)$AUC[1]),sep =" ")
+  }
+  legend(0.7,0.6,legend = AUC ,fill =c,title = expression(bold("AUC")),title.col = "black",title.adj = 0.15)
+  mtext(side=1,"False positive rate (1-specificity)",cex=1.4,line=2.5)
+  mtext(side=2,"Sensitivity",cex=1.4,line=2.5)
+  title("ROC curve")
+}
+
+
+#FigureS7----
+
+Control$BMI_Obesity[Control$class_Bmi==1 |Control$class_Bmi==2|Control$class_Bmi==3]<-0
+Control$BMI_Obesity[Control$class_Bmi==4]<-1
+
+M1<-formula(control_people~Bmi+strata(X_MatchID_1))
+M2<-formula(control_people~factor(BMI_Obesity)+strata(X_MatchID_1))
+M3<-formula(control_people~Bmi+factor(asthma_parent)+strata(X_MatchID_1))
+M4<-formula(control_people~factor(BMI_Obesity)+factor(asthma_parent)+strata(X_MatchID_1))
+
+setwd("E:\\H107217\\Tom\\20220510\\")
+
+jpeg("The effect of BMI traits on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4)
+p(line,title)
+dev.off()
+
+M1<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+strata(X_MatchID_1))
+M2<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~score_BMI_protect+score_Asthma_BMI_protect+strata(X_MatchID_1))
+M4<-formula(control_people~score_BMI_protect+score_Asthma_BMI_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+strata(X_MatchID_1))
+M6<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of BMI-related genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+M1<-formula(control_people~Bmi+score_BMI_risk+score_Asthma_BMI_risk+strata(X_MatchID_1))
+M2<-formula(control_people~Bmi+score_BMI_risk+score_Asthma_BMI_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~Bmi+score_BMI_protect+score_Asthma_BMI_protect+strata(X_MatchID_1))
+M4<-formula(control_people~Bmi+score_BMI_protect+score_Asthma_BMI_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~Bmi+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+strata(X_MatchID_1))
+M6<-formula(control_people~Bmi+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of BMI traits and genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+
+M1<-formula(control_people~factor(BMI_Obesity)+score_BMI_risk+score_Asthma_BMI_risk+strata(X_MatchID_1))
+M2<-formula(control_people~factor(BMI_Obesity)+score_BMI_risk+score_Asthma_BMI_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~factor(BMI_Obesity)+score_BMI_protect+score_Asthma_BMI_protect+strata(X_MatchID_1))
+M4<-formula(control_people~factor(BMI_Obesity)+score_BMI_protect+score_Asthma_BMI_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~factor(BMI_Obesity)+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+strata(X_MatchID_1))
+M6<-formula(control_people~factor(BMI_Obesity)+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of general obesity and genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+#FigureS8----
+
+M1<-formula(control_people~wc_hei+strata(X_MatchID_1))
+M2<-formula(control_people~factor(wc_hei_class)+strata(X_MatchID_1))
+M3<-formula(control_people~wc_hei+factor(asthma_parent)+strata(X_MatchID_1))
+M4<-formula(control_people~factor(wc_hei_class)+factor(asthma_parent)+strata(X_MatchID_1))
+
+setwd("E:\\H107217\\Tom\\20220510\\")
+
+jpeg("The effect of WHtR traits on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4)
+p(line,title)
+dev.off()
+
+M1<-formula(control_people~score_WHtR_risk+score_Asthma_WHtR_risk+strata(X_MatchID_1))
+M2<-formula(control_people~score_WHtR_risk+score_Asthma_WHtR_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M4<-formula(control_people~score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M6<-formula(control_people~score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of WHtR-related genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+M1<-formula(control_people~wc_hei+score_WHtR_risk+score_Asthma_WHtR_risk+strata(X_MatchID_1))
+M2<-formula(control_people~wc_hei+score_WHtR_risk+score_Asthma_WHtR_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~wc_hei+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M4<-formula(control_people~wc_hei+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~wc_hei+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M6<-formula(control_people~wc_hei+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of WHtR traits and genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+
+M1<-formula(control_people~factor(wc_hei_class)+score_WHtR_risk+score_Asthma_WHtR_risk+strata(X_MatchID_1))
+M2<-formula(control_people~factor(wc_hei_class)+score_WHtR_risk+score_Asthma_WHtR_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~factor(wc_hei_class)+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M4<-formula(control_people~factor(wc_hei_class)+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~factor(wc_hei_class)+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M6<-formula(control_people~factor(wc_hei_class)+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of central obesity and genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+
+
+#FigureS9 (BMI and WHtR)----
+
+M1<-formula(control_people~Bmi+wc_hei+strata(X_MatchID_1))
+M2<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+strata(X_MatchID_1))
+M3<-formula(control_people~Bmi+wc_hei+factor(asthma_parent)+strata(X_MatchID_1))
+M4<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+factor(asthma_parent)+strata(X_MatchID_1))
+
+setwd("E:\\H107217\\Tom\\20220510\\")
+
+jpeg("The effect of BMI and WHtR traits on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4)
+p(line,title)
+dev.off()
+
+M1<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+score_WHtR_risk+score_Asthma_WHtR_risk+strata(X_MatchID_1))
+M2<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+score_WHtR_risk+score_Asthma_WHtR_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M4<-formula(control_people~score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M6<-formula(control_people~score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of BMI- and WHtR- related genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+M1<-formula(control_people~Bmi+wc_hei+score_BMI_risk+score_Asthma_BMI_risk+score_WHtR_risk+score_Asthma_WHtR_risk+strata(X_MatchID_1))
+M2<-formula(control_people~Bmi+wc_hei+score_BMI_risk+score_Asthma_BMI_risk+score_WHtR_risk+score_Asthma_WHtR_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~Bmi+wc_hei+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M4<-formula(control_people~Bmi+wc_hei+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~Bmi+wc_hei+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M6<-formula(control_people~Bmi+wc_hei+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of obesity-related traits (BMI,WHtR Continuous) and genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
+
+M1<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+score_BMI_risk+score_Asthma_BMI_risk+score_WHtR_risk+score_Asthma_WHtR_risk+strata(X_MatchID_1))
+M2<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+score_BMI_risk+score_Asthma_BMI_risk+score_WHtR_risk+score_Asthma_WHtR_risk+factor(asthma_parent)+strata(X_MatchID_1))
+M3<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M4<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+M5<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+strata(X_MatchID_1))
+M6<-formula(control_people~factor(BMI_Obesity)+factor(wc_hei_class)+score_BMI_risk+score_Asthma_BMI_risk+score_BMI_protect+score_Asthma_BMI_protect+score_WHtR_risk+score_Asthma_WHtR_risk+score_WHtR_protect+score_Asthma_WHtR_protect+factor(asthma_parent)+strata(X_MatchID_1))
+
+jpeg("The effect of obesity-related traits (BMI,WHtR category) and genetic score on poorly controlled asthma_new.jpg",width = 2000,height = 1600,res = 300)
+line<-list(M1,M2,M3,M4,M5,M6)
+p1(line,title)
+dev.off()
