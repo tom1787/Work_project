@@ -1,1 +1,148 @@
 
+##meta analysis flow
+
+##make additive dominant recessive model to do meta analysis----
+setwd("E:\\H107217_1\\tom_TWBdata\\TWB_matching\\plink\\")
+Freq<-read.table("Freq.frq",header = T)
+
+meta_Asthma_A<-read.table("meta_Asthma_A.assoc.logistic",header = T)
+meta_Asthma_A[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Asthma_A<-meta_Asthma_A[,c("CHR","BP","SNP","OR","SE","P","A1","A2")]
+
+meta_Asthma_D<-read.table("meta_Asthma_D.assoc.logistic",header = T)
+meta_Asthma_D[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Asthma_D<-meta_Asthma_D[,c("CHR","BP","SNP","OR","SE","P","A1","A2")]
+
+meta_Asthma_R<-read.table("meta_Asthma_R.assoc.logistic",header = T)
+meta_Asthma_R[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Asthma_R<-meta_Asthma_R[,c("CHR","BP","SNP","OR","SE","P","A1","A2")]
+
+write.table(meta_Asthma_A,"meta_Asthma_A.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_Asthma_D,"meta_Asthma_D.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_Asthma_R,"meta_Asthma_R.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+meta_Bmi_A<-read.table("meta_Bmi_A.assoc.linear",header = T)
+meta_Bmi_A[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Bmi_A<-meta_Bmi_A[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+meta_Bmi_D<-read.table("meta_Bmi_D.assoc.linear",header = T)
+meta_Bmi_D[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Bmi_D<-meta_Bmi_D[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+meta_Bmi_R<-read.table("meta_Bmi_R.assoc.linear",header = T)
+meta_Bmi_R[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Bmi_R<-meta_Bmi_R[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+write.table(meta_Bmi_A,"meta_Bmi_A.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_Bmi_D,"meta_Bmi_D.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_Bmi_R,"meta_Bmi_R.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+meta_Wc_c_A<-read.table("meta_Wc_c_A.assoc.linear",header = T)
+meta_Wc_c_A[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Wc_c_A<-meta_Wc_c_A[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+meta_Wc_c_D<-read.table("meta_Wc_c_D.assoc.linear",header = T)
+meta_Wc_c_D[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Wc_c_D<-meta_Wc_c_D[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+meta_Wc_c_R<-read.table("meta_Wc_c_R.assoc.linear",header = T)
+meta_Wc_c_R[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_Wc_c_R<-meta_Wc_c_R[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+write.table(meta_Wc_c_A,"meta_Wc_c_A.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_Wc_c_D,"meta_Wc_c_D.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_Wc_c_R,"meta_Wc_c_R.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+meta_WHtR_c_A<-read.table("meta_WHtR_c_A.assoc.linear",header = T)
+meta_WHtR_c_A[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_WHtR_c_A<-meta_WHtR_c_A[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+meta_WHtR_c_D<-read.table("meta_WHtR_c_D.assoc.linear",header = T)
+meta_WHtR_c_D[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_WHtR_c_D<-meta_WHtR_c_D[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+meta_WHtR_c_R<-read.table("meta_WHtR_c_R.assoc.linear",header = T)
+meta_WHtR_c_R[,c("A1","A2")]<-Freq[,c("A1","A2")]
+meta_WHtR_c_R<-meta_WHtR_c_R[,c("CHR","BP","SNP","BETA","SE","P","A1","A2")]
+
+write.table(meta_WHtR_c_A,"meta_WHtR_c_A.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_WHtR_c_D,"meta_WHtR_c_D.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+write.table(meta_WHtR_c_R,"meta_WHtR_c_R.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+
+
+##Meta analysis finally --->make clump data (random fixed effect)----
+setwd("E:\\H107217_1\\tom_TWBdata\\TWB_matching\\plink\\")
+#Asthma
+meta_Asthma<-read.table("meta_Asthma_output.meta",header = T)
+meta_Asthma<-meta_Asthma[,c("CHR","BP","SNP","A1","A2","P","OR")]
+write.table(meta_Asthma,"meta_Asthma1.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+#BMI
+meta_Bmi<-read.table("meta_Bmi_output.meta",header = T)
+meta_Bmi<-meta_Bmi[,c("CHR","BP","SNP","A1","A2","P","BETA")]
+write.table(meta_Bmi,"meta_Bmi1.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+#Wc_c
+meta_Wc_c<-read.table("meta_Wc_c_output.meta",header = T)
+meta_Wc_c<-meta_Wc_c[,c("CHR","BP","SNP","A1","A2","P","BETA")]
+write.table(meta_Wc_c,"meta_Wc_c1.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+#WHtR_c
+meta_WHtR_c<-read.table("meta_WHtR_c_output.meta",header = T)
+meta_WHtR_c<-meta_WHtR_c[,c("CHR","BP","SNP","A1","A2","P","BETA")]
+write.table(meta_WHtR_c,"meta_WHtR_c1.txt",col.names = T,quote = F,sep = "\t",row.names = F)
+
+
+##Score calculating (clump setting --clump-p1 5e-8 –clump-p2 1e???5 –clump-r2 0.05...)----
+#需要延續上一步驟找出 A1 and BETA/OR
+setwd("E:\\H107217_1\\tom_TWBdata\\TWB_matching\\plink\\")
+#Asthma
+clump_asthma<-read.table("clump_meta_Asthma1.clumped",header=T)
+clump_asthma[,c("A1","OR")]<-meta_Asthma[match(clump_asthma$SNP,meta_Asthma$SNP),c("A1","OR")]
+score_meta_Asthma<-clump_asthma[,c("SNP","A1","OR")]
+score_meta_Asthma$OR<-log(score_meta_Asthma$OR)
+write.table(score_meta_Asthma,"score_meta_Asthma1.txt",quote = F,sep = "\t",col.names = F,row.names = F)
+#Bmi
+clump_Bmi<-read.table("clump_meta_Bmi1.clumped",header=T)
+clump_Bmi[,c("A1","BETA")]<-meta_Bmi[match(clump_Bmi$SNP,meta_Bmi$SNP),c("A1","BETA")]
+score_meta_Bmi<-clump_Bmi[,c("SNP","A1","BETA")]
+write.table(score_meta_Bmi,"score_meta_Bmi1.txt",quote = F,sep = "\t",col.names = F,row.names = F)
+#Wc_c
+clump_Wc_c<-read.table("clump_meta_Wc_c1.clumped",header=T)
+clump_Wc_c[,c("A1","BETA")]<-meta_Wc_c[match(clump_Wc_c$SNP,meta_Wc_c$SNP),c("A1","BETA")]
+score_meta_Wc_c<-clump_Wc_c[,c("SNP","A1","BETA")]
+write.table(score_meta_Wc_c,"score_meta_Wc_c1.txt",quote = F,sep = "\t",col.names = F,row.names = F)
+#WHtR_c
+clump_WHtR_c<-read.table("clump_meta_WHtR_c1.clumped",header=T)
+clump_WHtR_c[,c("A1","BETA")]<-meta_WHtR_c[match(clump_WHtR_c$SNP,meta_WHtR_c$SNP),c("A1","BETA")]
+score_meta_WHtR_c<-clump_WHtR_c[,c("SNP","A1","BETA")]
+write.table(score_meta_WHtR_c,"score_meta_WHtR_c1.txt",quote = F,sep = "\t",col.names = F,row.names = F)
+
+##Score 標準化 及 附值進去原本的DATA
+
+#Asthma
+
+Score_Asthma<-read.table("score_meta_asthma1.profile",header=T)
+Score_Asthma$SCORE<-(Score_Asthma$SCORE-mean(Score_Asthma$SCORE))/sd(Score_Asthma$SCORE)
+
+#BMI
+Score_Bmi<-read.table("score_meta_Bmi1.profile",header=T)
+Score_Bmi$SCORE<-(Score_Bmi$SCORE-mean(Score_Bmi$SCORE))/sd(Score_Bmi$SCORE)
+#WC
+Score_Wc_c<-read.table("score_meta_Wc_c1.profile",header=T)
+Score_Wc_c$SCORE<-(Score_Wc_c$SCORE-mean(Score_Wc_c$SCORE))/sd(Score_Wc_c$SCORE)
+#WHtR
+Score_WHtR_c<-read.table("score_meta_WHtR_c1.profile",header=T)
+Score_WHtR_c$SCORE<-(Score_WHtR_c$SCORE-mean(Score_WHtR_c$SCORE))/sd(Score_WHtR_c$SCORE)
+
+
+##data
+setwd("E:\\H107217_1\\tom_TWBdata\\TWB_matching\\")
+match_data_new5<-read.csv("match_data_new4.csv",header = T)
+match_data_new5[,c("meta_ASTHMA_score1","meta_BMI_score1","meta_WC_c_score1","meta_WHtR_c_score1")]<-c(Score_Asthma$SCORE,Score_Bmi$SCORE,Score_Wc_c$SCORE,Score_WHtR_c$SCORE)
+write.csv(match_data_new5,"match_data_new5.csv",quote = F,row.names = F)
+library(foreign)
+                  
+write.foreign(match_data_new5,codefile = "meta_analysis1.txt",
+              datafile = "match_data_new5_1.csv",package = "SAS")
