@@ -1,3 +1,69 @@
+##CACULATE NFR9.3----
+##Kcal, Nurient two days mean
+
+NRF9.3<-function(data){
+  Nurient<-data.frame(matrix(data=NA,nrow = nrow(data),ncol = 13))
+  a<-data[,c("DR1TKCAL","DR1TPROT","DR1TFIBE","DR1TVARA","DR1TVC","DR1TVD", 
+             "DR1TCALC","DR1TIRON","DR1TPOTA","DR1TMAGN","DR1T_ADD_SUGARS",  
+             "DR1TSFAT","DR1TSODI","DR2TKCAL","DR2TPROT","DR2TFIBE",  
+             "DR2TVARA","DR2TVC",  "DR2TVD",  "DR2TCALC","DR2TIRON",  
+             "DR2TPOTA","DR2TMAGN","DR2T_ADD_SUGARS","DR2TSFAT","DR2TSODI")]
+  for(i in 1:13){
+    for(j in 1:nrow(a))
+      #第一天遺失
+      if(is.na(a[j,i]) & !is.na(a[j,i+13])){
+        Nurient[j,i]<-a[j,i+13]
+        #第二天遺失
+      }else if (!is.na(a[j,i]) & is.na(a[j,i+13])){
+        Nurient[j,i]<-a[j,i]
+        #未遺失
+      }else{
+        Nurient[j,i]<-(a[j,i]+a[j,i+13])/2
+      }
+  }
+  ##ADD SEQN and invidual name
+  names(Nurient)<-c("ENERGY","PROTEIN","FIBER","VITAMIN.A","VITAMIN.C","VITAMIN.D",
+                    "CALCIUM","IRON","POTASSIUM","MAGNESIUM",
+                    "SUGAR","SATURATED.FAT","SODIUM")
+  #CACULATE NRF9.3 (2000kal/day)
+  DV<-c(50,28,900,90,20,1300,18,4700,420)
+  MDV<-c(90,20,2300)
+  ##限制條件 if(Nurient/DV>1) Nurient/DV=1
+  NR_limit<-Nurient[,c(2:10)]
+  NR_limit1<-matrix(NA,nrow=dim(NR_limit)[1],ncol=dim(NR_limit)[2])
+  for(i in 1:9){
+    for(j in 1:nrow(NR_limit)){
+      if(is.na(NR_limit[j,i])){
+        next
+      }else if(NR_limit[j,i]/DV[i]>1){
+        NR_limit1[j,i]=1
+      }else{
+        NR_limit1[j,i]=NR_limit[j,i]/DV[i]
+      }
+    }
+  }
+  
+  ##限制條件 if(Nurient/MDV<1)  Nurient/MDV=0
+  LIM_limit<-Nurient[,c(11:13)]
+  LIM_limit1<-matrix(nrow=dim(LIM_limit)[1],ncol=dim(LIM_limit)[2])
+  for(i in 1:3){
+    for(j in 1:nrow(LIM_limit)){
+      if(is.na(LIM_limit[j,i])){
+        next
+      }else if(LIM_limit[j,i]/MDV[i]<1){
+        LIM_limit1[j,i]=0
+      }else{
+        LIM_limit1[j,i]=LIM_limit[j,i]/MDV[i]
+      }
+    }
+  }
+  NR<-rowSums(NR_limit1/Nurient$ENERGY*2000)
+  LIM<-rowSums(LIM_limit1/Nurient$ENERGY*2000)-1
+  ##100 NR LIM missing 所推估
+  NRF9.3<-(NR-LIM)*100
+  return(NRF9.3)
+}
+
 
 setwd("C:\\Users\\奕碁\\Desktop\\NHANES\\")
 #n=8370 
