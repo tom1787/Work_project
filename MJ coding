@@ -1,0 +1,679 @@
+library(data.table)
+library(epiDisplay)
+library(dplyr)
+library(readxl)
+library(geepack)
+## order by pm
+rawdata<-fread("C:\\Users\\user\\Desktop\\美兆new\\alldata_with_metabolic_syndromes.csv")
+rawdata<-data.frame(rawdata[order(rawdata$serialno),])
+
+
+##environment
+environment<-fread("C:\\Users\\user\\Desktop\\美照處理data\\not_fill_Environment.csv")
+environment<-environment[,-1]
+environment<-data.frame(environment)
+
+
+##combine environment energy
+data<-cbind(rawdata,environment)
+data<-data.frame(data)
+##環境data
+
+sum(!is.na(data$o3_patient))
+length(unique(data$pid[is.na(data$o3_patient)]))
+sum(!is.na(data$SO2_patient))
+length(unique(data$pid[is.na(data$SO2_patient)]))
+sum(!is.na(data$NO2_patient))
+length(unique(data$pid[is.na(data$NO2_patient)]))
+sum(!is.na(data$pm10_patient))
+length(unique(data$pid[is.na(data$pm10_patient)]))
+o3_NA<-data.frame(data$serialno[is.na(data$o3_patient)],data$yr[is.na(data$o3_patient)],data$longitude[is.na(data$o3_patient)],data$latitude[is.na(data$o3_patient)],data$o3_patient[is.na(data$o3_patient)])
+NO2_NA<-data.frame(data$serialno[is.na(data$NO2_patient)],data$yr[is.na(data$NO2_patient)],data$longitude[is.na(data$NO2_patient)],data$latitude[is.na(data$NO2_patient)],data$NO2_patient[is.na(data$NO2_patient)])
+SO2_NA<-data.frame(data$serialno[is.na(data$SO2_patient)],data$yr[is.na(data$SO2_patient)],data$longitude[is.na(data$SO2_patient)],data$latitude[is.na(data$SO2_patient)],data$SO2_patient[is.na(data$SO2_patient)])
+pm10_NA<-data.frame(data$serialno[is.na(data$pm10_patient)],data$yr[is.na(data$pm10_patient)],data$longitude[is.na(data$pm10_patient)],data$latitude[is.na(data$pm10_patient)],data$pm10_patient[is.na(data$pm10_patient)])
+names(o3_NA)<-c("serialno","yr","lon","lat","o3")
+names(NO2_NA)<-c("serialno","yr","lon","lat","NO2")
+names(SO2_NA)<-c("serialno","yr","lon","lat","SO2")
+names(pm10_NA)<-c("serialno","yr","lon","lat","pm10")
+
+write.csv(o3_NA,"C:\\Users\\user\\Desktop\\environment\\o3_NA.csv",quote=FALSE,row.names=F)
+write.csv(NO2_NA,"C:\\Users\\user\\Desktop\\environment\\NO2_NA.csv",quote=FALSE,row.names=F)
+write.csv(SO2_NA,"C:\\Users\\user\\Desktop\\environment\\SO2_NA.csv",quote=FALSE,row.names=F)
+write.csv(pm10_NA,"C:\\Users\\user\\Desktop\\environment\\pm10_NA.csv",quote=FALSE,row.names=F)
+
+
+##QGIS
+o3<-read.csv("C:\\Users\\user\\Desktop\\mapdata201911260954\\o3_new.csv")
+No2<-read.csv("C:\\Users\\user\\Desktop\\mapdata201911260954\\NO2_new.csv")
+SO2<-read.csv("C:\\Users\\user\\Desktop\\mapdata201911260954\\SO2_new.csv")
+pm10<-read.csv("C:\\Users\\user\\Desktop\\mapdata201911260954\\pm10_new.csv")
+
+
+###附值
+data1<-data
+data1[is.na(data$o3_patient),"o3_patient"]<-o3$o3
+data1[is.na(data$NO2_patient),"NO2_patient"]<-No2$NO2
+data1[is.na(data$SO2_patient),"SO2_patient"]<-SO2$SO2
+data1[is.na(data$pm10_patient),"pm10_patient"]<-pm10$pm10
+
+sum(is.na(data1$o3_patient))
+length(unique(data1$pid[is.na(data1$o3_patient)]))
+##將離島的人附值為NA
+for(i in 1:length(unique(data1$pid[is.na(data1$o3_patient)]))){
+  data1[data1$pid==unique(data1$pid[is.na(data1$o3_patient)])[i],c("o3_patient")]<-rep(NA,length(data1[data1$pid==unique(data1$pid[is.na(data1$o3_patient)])[i],c("o3_patient")]))
+}
+
+data2<-data1
+data2<-data.frame(data2)
+sum(is.na(data2$o3_patient))
+length(unique(data2$pid[is.na(data2$o3_patient)]))
+
+data3<-data2[complete.cases(data2$o3_patient),]
+length(unique(data3$pid))
+
+##-------------------------------------------
+##對本來就是NA的進行補植 只要自述為1 就當次病患發生過氣喘(psick14,mdrug08)
+sum(is.na(data3$psick14))
+sum(is.na(data3$mdrug08))
+data4<-data3
+data4$new_psick14<-data3$psick14
+data4$new_mdrug08<-data3$mdrug08
+for (i in 1:length(data3$pid[is.na(data3$psick14)])) {
+  aa<-data3[data3$pid==data3$pid[is.na(data3$psick14)][i],"psick14"]
+  if(sum(aa,na.rm = T)>=1){
+    aa<-rep(1,length(data3[data3$pid==data3$pid[is.na(data3$psick14)][i],"psick14"]))}
+   data4[data4$pid==data4$pid[is.na(data4$psick14)][i],"new_psick14"]<-aa
+} 
+
+for (i in 1:length(data3$pid[is.na(data3$mdrug08)])) {
+  bb<-data3[data3$pid==data3$pid[is.na(data3$mdrug08)][i],"mdrug08"]
+  if(sum(bb,na.rm = T)>=1){
+   bb<-rep(1,length(data3[data3$pid==data3$pid[is.na(data3$mdrug08)][i],"mdrug08"]))
+  }
+  data4[data4$pid==data4$pid[is.na(data4$mdrug08)][i],"new_mdrug08"]<-bb
+}
+
+sum(is.na(data4$new_psick14))
+sum(is.na(data4$new_mdrug08)) 
+##設定new_psick14 NA=3  new_mdrug08 NA=3
+data4$new_psick14[is.na(data4$new_psick14)]<-3
+data4$new_mdrug08[is.na(data4$new_mdrug08)]<-3
+table(data4$new_psick14)
+data5<-data4
+
+##只要其中一個符合就為Asthma(長期服用藥物或是自述氣喘)
+data5$Asthma<-rep(0,nrow(data5))
+data5[ data5$new_psick14==1 | data5$new_mdrug08==1,"Asthma"]<-1
+data5[ (data5$new_psick14==3 & data5$new_mdrug08==0) |(data5$new_psick14==0 & data5$new_mdrug08==3)|(data5$new_psick14==3 & data5$new_mdrug08==3),"Asthma"]<-2
+sum(is.na(data5$Asthma))
+table(data5$Asthma)
+
+data5<-data5[data5$Asthma!=2,]
+length(unique(data5$pid))
+
+##定義氣喘:只要病人有氣喘，病人其他筆資料也定義為氣喘
+
+Asthma_id<-unique(data5[data5$Asthma==1,"pid"])
+x<-data.frame(pid=Asthma_id,Asthma=rep(1,length(Asthma_id)))
+new_data<-merge.data.frame(x=data5,y=x,by="pid",all.x = T)
+table(new_data$Asthma.x)
+table(new_data$Asthma.y)
+
+new_data[is.na(new_data$Asthma.y),"Asthma.y"]<-0
+new_data<-data.frame(new_data)
+
+new_data<-new_data[,-which(names(new_data)=="Asthma.x")]
+table(new_data$Asthma.y)
+##FEV1/FVC
+
+##將呼吸道為NA的資料刪除
+sum(is.na(new_data$ratio_lung_function))
+length(unique(new_data$pid[is.na(new_data$ratio_lung_function)]))
+
+data6<-new_data[complete.cases(new_data$ratio_lung_function),]
+length(unique(data6$pid))
+
+##將呼吸道小於0.7 或大於1的資料刪除
+data7<-data6[data6$ratio_lung_function>=0.7,]
+length(unique(data7$pid))
+data8<-data7[data7$ratio_lung_function<=1,]
+length(unique(data8$pid))
+
+##將腰圍為遺失值的刪除
+sum(is.na(data8$g_wc))
+data9<-data8[complete.cases(data8$g_wc),]
+length(unique(data9$pid))
+
+## BMI  
+#將BMI為遺失值的刪除na=88 
+sum(is.na(data9$g_bmi)) 
+data10<-data9[complete.cases(data9$g_bmi),]
+length(unique(data10$pid))
+
+
+
+##age 將年齡分成10組
+sum(is.na(data10$age))
+summary(data10$age)
+data10$age_class<-NA
+data10$age_class[data10$age>=1 & data10$age<10]<-1
+data10$age_class[data10$age>=10 & data10$age<20]<-2
+data10$age_class[data10$age>=20 & data10$age<30]<-3
+data10$age_class[data10$age>=30 & data10$age<40]<-4
+data10$age_class[data10$age>=40 & data10$age<50]<-5
+data10$age_class[data10$age>=50 & data10$age<60]<-6
+data10$age_class[data10$age>=60 & data10$age<70]<-7
+data10$age_class[data10$age>=70 & data10$age<80]<-8
+data10$age_class[data10$age>=80 & data10$age<90]<-9
+data10$age_class[data10$age>=90 & data10$age<100]<-10
+data10$age_class[ data10$age>=100]<-11
+
+##將前面資料剔除後或是病人健檢只來一次刪除
+data11<-data10
+pid_data11<-table(data11$pid)
+pid_data11<-data.frame(pid_data11)
+pid<-as.character(pid_data11$Var1[pid_data11$Freq==1])
+length(pid)
+data12<-data11[-c(match(pid,data11$pid)),]
+
+## 將資料對年月進行排序
+data12<-data12[order(data12$yr,data12$mon),]
+
+
+##對教育程度進行補值 (以前一次回答或是第一次回答去填補下一次回答，最後再利用眾數去填補)
+aa<-list()
+for (i in 1:length(unique(data12$pid))) {
+  aa[[i]]<-data12$education[data12$pid==unique(data12$pid)[[i]]]
+  ##最一開始的NA用後面補值
+  if(length(which(is.na(aa[[i]])))==0){
+    next
+  }else if(length(which(is.na(aa[[i]])))== length(aa[[i]]) ) {
+    next
+  }else if(which(is.na(aa[[i]]))[1]==1){
+    aa[[i]][which(is.na(aa[[i]]))[1]]<-aa[[i]][which(is.na(aa[[i]]))[1]+1]
+  }
+  ##後面NA用前一次回答補值
+  if(length(which(is.na(aa[[i]])))==0){
+    next
+  }else if(length(which(is.na(aa[[i]])))== length(aa[[i]]) ) {
+    next
+  }else if(which(is.na(aa[[i]]))>1){
+    aa[[i]][which(is.na(aa[[i]]))]<-aa[[i]][which(is.na(aa[[i]]))-1]
+  }}
+##利用眾數進行補值
+for(i in 1:length(unique(data12$pid))){
+  if(length(which(is.na(aa[[i]])))==0){
+    next
+  }else if(length(which(is.na(aa[[i]])))== length(aa[[i]]) ) {
+    next
+  }else{
+    aa[[i]][which(is.na(aa[[i]]))]<-rep(as.numeric(names(table(aa[[ i]])))[table(aa[[i]]) == max(table(aa[[i]]))],length(which(is.na(aa[[i]]))))
+  }
+}
+##附值
+for(i in 1:length(unique(data12$pid))){
+  data12$education[data12$pid==unique(data12$pid)[[i]]]<-aa[[i]]
+}
+data12<-data.frame(data12)
+
+
+##刪除 education   missing
+sum(is.na(data13$education))
+
+data13<-data12[complete.cases(data12$education),]
+
+
+##class education
+data13$class_education <-NA
+data13[!is.na(data13$education) & data13$education==1 | data13$education==2 ,"class_education"] <-1
+data13[!is.na(data13$education) & data13$education==3| data13$education==4   ,"class_education"] <-2
+data13[!is.na(data13$education) & data13$education==5| data13$education==6| data13$education==7 ,"class_education"] <-3
+
+
+
+##smoke 將抽菸定義為 不抽 二手菸 以前抽  常抽 
+data13$smoke<-NA
+data13[is.na(data13$smokeornot_98)  & as.numeric(data13$yr) <=2002 & data13$age<18,"smokeornot_98"]<-1
+data13[!is.na(data13$smokeornot_98) & data13$smokeornot_98==1 & as.numeric(data13$yr) <=2002,'smoke']<-1
+data13[!is.na(data13$smokeornot_98) & data13$smokeornot_98==2 & as.numeric(data13$yr) <=2002,'smoke']<-2
+data13[!is.na(data13$smokeornot_98) & data13$smokeornot_98==3 & as.numeric(data13$yr) <=2002,'smoke']<-3
+data13[!is.na(data13$smokeornot_98) & data13$smokeornot_98==4 & as.numeric(data13$yr) <=2002,'smoke']<-4
+data13[!is.na(data13$smokeornot_98) & data13$smokeornot_98==5 & as.numeric(data13$yr) <=2002,'smoke']<-4
+data13[!is.na(data13$smokeornot_98) & data13$smokeornot_98==6 & as.numeric(data13$yr) <=2002,'smoke']<-4
+
+data13[is.na(data13$smokeornot_03)  & as.numeric(data13$yr) >2002 & data13$age<18,"smokeornot_03"]<-1
+data13[!is.na(data13$smokeornot_03) & data13$smokeornot_03==1 & as.numeric(data13$yr) >2002,'smoke']<-1
+data13[!is.na(data13$smokeornot_03) & data13$smokeornot_03==2 & as.numeric(data13$yr) >2002,'smoke']<-2
+data13[!is.na(data13$smokeornot_03) & data13$smokeornot_03==3 & as.numeric(data13$yr) >2002,'smoke']<-3
+data13[!is.na(data13$smokeornot_03) & data13$smokeornot_03==4 & as.numeric(data13$yr) >2002,'smoke']<-4
+data13[!is.na(data13$smokeornot_03) & data13$smokeornot_03==5 & as.numeric(data13$yr) >2002,'smoke']<-4
+
+
+
+data14<-data13
+
+##smoke 補眾數
+b<-list()b
+sum(is.na(bb[[]]))
+
+for (i in 1:length(unique(data14$pid))) {
+  bb[[i]]<-data14$smoke[data14$pid==unique(data14$pid)[[i]]]
+  if(length(which(is.na(bb[[i]])))==0){
+    next
+  }else if(length(which(is.na(bb[[i]])))== length(bb[[i]]) ) {
+    next
+  }else{
+    bb[[i]][which(is.na(bb[[i]]))]<-rep(as.numeric(names(table(bb[[i]])))[table(bb[[i]]) == max(table(bb[[i]]))],length(which(is.na(bb[[i]]))))
+  }}
+
+for (i in 1:length(unique(data14$pid))) {
+  data14$smoke[data14$pid==unique(data14$pid)[[i]]]<-bb[[i]]
+}
+data14<-data.frame(data14)
+data15<-data14[complete.cases(data14$smoke),]
+
+library(data.table)
+data15<-fread("C:\\Users\\user\\Desktop\\美兆整理\\data16.csv")
+
+##--MET-----------------
+data15$vlightsport<-data15$vmeansport<-data15$vheavysport<-data15$vvioltsport<-data15$vsportornot_98<-data15$vfirstsport<-data15$vfirstsportfrequ<-data15$vfirstsporttime<-NA
+
+data15[(!is.na(data15$lightsport) & data15$lightsport==1),c("vlightsport")]<-2.5
+data15[(!is.na(data15$lightsport) & data15$lightsport==0),c("vlightsport")]<-0
+data15[is.na(data15$lightsport),c("vlightsport")]<-0
+
+data15[(!is.na(data15$meansport) & data15$meansport==1),c("vmeansport")]<-4.5
+data15[(!is.na(data15$meansport) & data15$meansport==0),c("vmeansport")]<-0
+data15[is.na(data15$meansport),c("vmeansport")]<-0
+
+data15[(!is.na(data15$heavysport) & data15$heavysport==1),c("vheavysport")]<-6.5
+data15[(!is.na(data15$heavysport) & data15$heavysport==0),c("vheavysport")]<-0
+data15[is.na(data15$heavysport),c("vheavysport")]<-0
+
+data15[(!is.na(data15$violtsport) & data15$violtsport==1),c("vvioltsport")]<-8.5
+data15[(!is.na(data15$violtsport) & data15$violtsport==0),c("vvioltsport")]<-0
+data15[is.na(data15$violtsport),c("vvioltsport")]<-0
+
+data15[(!is.na(data15$sportornot_98) & data15$sportornot_98==1),c("vsportornot_98")]<-0.5
+data15[(!is.na(data15$sportornot_98) & data15$sportornot_98==2),c("vsportornot_98")]<-1.5
+data15[(!is.na(data15$sportornot_98) & data15$sportornot_98==3),c("vsportornot_98")]<-3.5
+data15[(!is.na(data15$sportornot_98) & data15$sportornot_98==4),c("vsportornot_98")]<-5.5
+data15[(!is.na(data15$sportornot_98) & data15$sportornot_98==5),c("vsportornot_98")]<-7.5
+data15[is.na(data15$sportornot_98),c("vsportornot_98")]<-0
+
+
+data15[(!is.na(data15$firstsport) & data15$firstsport==1),c("vfirstsport")]<-2.5
+data15[(!is.na(data15$firstsport) & data15$firstsport==2),c("vfirstsport")]<-4.5
+data15[(!is.na(data15$firstsport) & data15$firstsport==3),c("vfirstsport")]<-6.5
+data15[(!is.na(data15$firstsport) & data15$firstsport==4),c("vfirstsport")]<-8.5
+data15[(!is.na(data15$firstsport) & data15$firstsport==5),c("vfirstsport")]<-0
+data15[is.na(data15$firstsport),c("vfirstsport")]<-0
+
+
+data15[(!is.na(data15$firstsportfrequ) & data15$firstsportfrequ==1),c("vfirstsportfrequ")]<-17.5
+data15[(!is.na(data15$firstsportfrequ) & data15$firstsportfrequ==2),c("vfirstsportfrequ")]<-7
+data15[(!is.na(data15$firstsportfrequ) & data15$firstsportfrequ==3),c("vfirstsportfrequ")]<-2.8
+data15[(!is.na(data15$firstsportfrequ) & data15$firstsportfrequ==4),c("vfirstsportfrequ")]<-1
+data15[(!is.na(data15$firstsportfrequ) & data15$firstsportfrequ==5),c("vfirstsportfrequ")]<-0.5
+data15[is.na(data15$firstsportfrequ),c("vfirstsportfrequ")]<-0
+
+data15[(!is.na(data15$firstsporttime) & data15$firstsporttime==1),c("vfirstsporttime")]<-0.25
+data15[(!is.na(data15$firstsporttime) & data15$firstsporttime==2),c("vfirstsporttime")]<-0.75
+data15[(!is.na(data15$firstsporttime) & data15$firstsporttime==3),c("vfirstsporttime")]<-1.5
+data15[(!is.na(data15$firstsporttime) & data15$firstsporttime==4),c("vfirstsporttime")]<-2.5
+data15[is.na(data15$firstsporttime),c("vfirstsporttime")]<-0
+
+data15$met_hr <-data15$vfirstsport * data15$vfirstsportfrequ * data15$vfirstsporttime + data15$vlightsport*data15$vsportornot_98 + data15$vmeansport*data15$vsportornot_98 + data15$vheavysport*data15$vsportornot_98 + data15$vvioltsport*data15$vsportornot_98 
+
+##met group 7.5< 7.5-21 >21
+data15$metgroup<-NA
+data15$metgroup[data15$met_hr<7.5]<-1
+data15$metgroup[data15$met_hr>=7.5 & data15$met_hr<21]<-2
+data15$metgroup[data15$met_hr>=21]<-3
+table(data15$metgroup)
+
+###class_g_bmi class  1=normal 2=underweight 3=overweight 4=obesity  
+overweight_boy<-c(14.8,18.3,17.4,17.0,16.7,16.7,16.9,17.9,19.0,19.5,20.0,20.7,21.3,21.9,22.5,22.9,23.3,25.5)
+underweight_boy<-c(11.5,14.8,14.2,13.7,13.4,13.3,13.5,13.8,14.1,14.3,14.5,14.8,15.2,15.7,16.3,16.9,17.4,17.8)
+obesity_boy<-c(15.8,19.2,18.3,17.8,17.6,17.7,18.5,20.3,21.6,22.3,22.7,23.2,23.9,24.5,25.0,25.4,25.6,25.6)
+overweight_girl<-c(14.7,17.9,17.2,16.9,16.8,17.0,17.2,17.7,18.4,19.1,19.7,20.5,21.3,21.9,22.5,22.7,22.7,22.7)
+underweight_girl<-c(11.5,14.2,13.7,13.5,13.2,13.1,13.1,13.4,13.8,14.0,14.3,14.7,15.2,15.7,16.3,16.7,17.1,17.3)
+obesity_girl<-c(15.5,19.0,18.1,17.8,17.9,18.1,18.8,19.6,20.7,21.3,22.0,22.7,23.5,24.3,24.9,25.2,25.3,25.3)
+
+x<-data.frame(age=c(0:17),underweight_boy,overweight_boy,obesity_boy,underweight_girl,overweight_girl,obesity_girl)
+littleboy<-data15[data15$gender==1 & data15$age<18,c("age","g_bmi")]
+littlegirl<-data15[data15$gender==2 & data15$age<18,c("age","g_bmi")]
+##計算0-17歲男性體重分組
+littleboy$class_g_bmi<-rep(1,nrow(littleboy))
+littleboy$class_g_bmi[littleboy$g_bmi<x[littleboy$age,"underweight_boy"]]<-2
+littleboy$class_g_bmi[littleboy$g_bmi>=x[littleboy$age,"overweight_boy"] & littleboy$g_bmi<x[littleboy$age,"obesity_boy"]]<-3
+littleboy$class_g_bmi[littleboy$g_bmi>=x[(littleboy$age),"obesity_boy"] ]<-4
+table(littleboy$class_g_bmi)
+##計算0-17歲女性體重分組
+littlegirl$class_g_bmi<-rep(1,nrow(littlegirl))
+littlegirl$class_g_bmi[littlegirl$g_bmi<x[littlegirl$age,"underweight_girl"]]<-2
+littlegirl$class_g_bmi[littlegirl$g_bmi>=x[littlegirl$age,"overweight_girl"] & littlegirl$g_bmi<x[littlegirl$age,"obesity_girl"]]<-3
+littlegirl$class_g_bmi[littlegirl$g_bmi>=x[littlegirl$age,"obesity_girl"] ]<-4
+
+data15$class_g_bmi<-rep(1,nrow(data15))
+data15[data15$gender==1 & data15$age<18,'class_g_bmi']<-littleboy$class_g_bmi
+data15[data15$gender==2 & data15$age<18,'class_g_bmi']<-littlegirl$class_g_bmi
+data15[data15$g_bmi<18.5 & data15$age>=18,'class_g_bmi']<-2
+data15[data15$g_bmi>=24 & data15$g_bmi <27  & data15$age>=18,'class_g_bmi']<-3
+data15[data15$g_bmi>=27 & data15$age>=18,'class_g_bmi']<-4
+
+table(data15$class_g_bmi)
+
+##wc分組男1 女2
+data15$class_wc<-0
+data15$class_wc[data15$gender==1 & data15$g_wc>=90]<-1
+data15$class_wc[data15$gender==2 & data15$g_wc>=80]<-1
+
+
+
+##定義名稱
+names(data15)[187:190]<-c("o3","NO2","SO2","pm10")
+data16<-data15
+names(data16)[191:193]<-c("new_asthma","new_asthma_drug","asthma_finally")
+names(data16)[c(29,30,31,32,34,41,42,44,45)]<-c("HTN_drug","DM_drug","hyperlipidemic_drug",
+                                                "asthma_drug","Psychiatric_drug","HTN","DM","CVD","asthma")
+
+
+##疾病填補根據之前或之後回答來判斷
+HTN<-list()
+for(i in 1:length(data16$pid[is.na(data16$HTN)])){
+  HTN[[i]]<-data16[data16$pid==unique(data16$pid[is.na(data16$HTN)])[i],c("HTN")]
+}
+sum(is.na(data16$HTN))
+DM<-list()
+for(i in 1:length(data16$pid[is.na(data16$DM)])){
+  DM[[i]]<-data16[data16$pid==unique(data16$pid[is.na(data16$DM)])[i],c("DM")]
+}
+sum(is.na(data16$DM))
+
+CVD<-list()
+for(i in 1:length(data16$pid[is.na(data16$CVD)])){
+  CVD[[i]]<-data16[data16$pid==unique(data16$pid[is.na(data16$CVD)])[i],c("CVD")]
+}
+sum(is.na(data16$CVD))
+HTN_drug<-list()
+for(i in 1:length(data16$pid[is.na(data16$HTN_drug)])){
+  HTN_drug[[i]]<-data16[data16$pid==unique(data16$pid[is.na(data16$HTN_drug)])[i],c("HTN_drug")]
+}
+
+DM_drug<-list()
+for(i in 1:length(data16$pid[is.na(data16$DM_drug)])){
+  DM_drug[[i]]<-data16[data16$pid==unique(data16$pid[is.na(data16$DM_drug)])[i],c("DM_drug")]
+}
+
+hyperlipidemic_drug<-list()
+for(i in 1:length(data16$pid[is.na(data16$hyperlipidemic_drug)])){
+  hyperlipidemic_drug[[i]]<-data16[data16$pid==unique(data16$pid[is.na(data16$hyperlipidemic_drug)])[i],c("hyperlipidemic_drug")]
+}
+Psychiatric_drug<-list()
+for(i in 1:length(data16$pid[is.na(data16$Psychiatric_drug)])){
+  Psychiatric_drug[[i]]<-data16[data16$pid==unique(data16$pid[is.na(data16$Psychiatric_drug)])[i],c("Psychiatric_drug")]
+}
+
+data16$HTN[is.na(data16$HTN)]<-rep(0,sum(is.na(data16$HTN)))
+data16$DM[is.na(data16$DM)]<-rep(0,sum(is.na(data16$DM)))
+data16$CVD[is.na(data16$CVD)]<-rep(0,sum(is.na(data16$CVD)))
+data16$HTN_drug[is.na(data16$HTN_drug)]<-rep(0,sum(is.na(data16$HTN_drug)))
+data16$DM_drug[is.na(data16$DM_drug)]<-rep(0,sum(is.na(data16$DM_drug)))
+data16$hyperlipidemic_drug[is.na(data16$hyperlipidemic_drug)]<-rep(0,sum(is.na(data16$hyperlipidemic_drug)))
+data16$Psychiatric_drug[is.na(data16$Psychiatric_drug)]<-rep(0,sum(is.na(data16$Psychiatric_drug)))
+
+##將年齡分組 <20 20-59 >60
+data16$agegroup[data16$age<20]<-1
+data16$agegroup[data16$age>=20 & data16$age<60]<-2
+data16$agegroup[data16$age>=60 ]<-3
+
+##呼吸道
+data16$FEV1_FVC<-data16$ratio_lung_function*100
+
+
+##分成氣喘以及非氣喘
+
+all<-data16[,c("pid","yr","mon","n","nn","gender","age","agegroup","education","HTN_drug","DM_drug","hyperlipidemic_drug",
+               "Psychiatric_drug","HTN","DM","CVD","g_wc","g_bmi","ratio_lung_function",
+               "FEV1_FVC","o3","NO2","SO2","pm10","class_g_bmi","class_wc","age_class","class_education","smoke","met_hr",
+               "metgroup","new_asthma","new_asthma_drug","asthma_finally")]
+
+all<-data.frame(all)
+all$pid<-as.factor(all$pid)
+all$agegroup<-as.factor(all$agegroup)
+all$gender<-as.factor(all$gender)
+all$class_g_bmi<-as.factor(all$class_g_bmi)
+all$class_wc<-as.factor(all$class_wc)
+all$class_education<-as.factor(all$class_education)
+all$HTN<-as.factor(all$HTN)
+all$DM<-as.factor(all$DM)
+all$CVD<-as.factor(all$CVD)
+all$HTN_drug<-as.factor(all$HTN_drug)
+all$DM_drug<-as.factor(all$DM_drug)
+all$DM_drug<-as.factor(all$DM_drug)
+all$hyperlipidemic_drug<-as.factor(all$hyperlipidemic_drug)
+all$Psychiatric_drug<-as.factor(all$Psychiatric_drug)
+all$smoke<-as.factor(all$smoke)
+all$metgroup<-as.factor(all$metgroup)
+all<-all[order(all$pid),]
+
+
+
+##將資料分為2組
+asthma<-all[all$asthma_finally==1,]
+health<-all[all$asthma_finally==0,]
+
+
+
+
+
+
+
+
+##對於氣喘與非氣喘組的環境濃度變數進行分組
+
+##asthma
+
+asthma$class_pm10[asthma$pm10<as.numeric(summary(asthma$pm10)[2])]<-1
+asthma$class_pm10[asthma$pm10>=as.numeric(summary(asthma$pm10)[2]) & asthma$pm10<as.numeric(summary(asthma$pm10)[3]) ]<-2
+asthma$class_pm10[asthma$pm10>=as.numeric(summary(asthma$pm10)[3]) & asthma$pm10<as.numeric(summary(asthma$pm10)[5]) ]<-3
+asthma$class_pm10[asthma$pm10>=as.numeric(summary(asthma$pm10)[5])]<-4
+
+asthma$class_o3[asthma$o3<as.numeric(summary(asthma$o3)[2])]<-1
+asthma$class_o3[asthma$o3>=as.numeric(summary(asthma$o3)[2]) & asthma$o3<as.numeric(summary(asthma$o3)[3]) ]<-2
+asthma$class_o3[asthma$o3>=as.numeric(summary(asthma$o3)[3])& asthma$o3<as.numeric(summary(asthma$o3)[5]) ]<-3
+asthma$class_o3[asthma$o3>=as.numeric(summary(asthma$o3)[5])]<-4
+
+asthma$class_no2[asthma$NO2<as.numeric(summary(asthma$NO2)[2])]<-1
+asthma$class_no2[asthma$NO2>=as.numeric(summary(asthma$NO2)[2]) & asthma$NO2<as.numeric(summary(asthma$NO2)[3]) ]<-2
+asthma$class_no2[asthma$NO2>=as.numeric(summary(asthma$NO2)[3]) & asthma$NO2<as.numeric(summary(asthma$NO2)[5]) ]<-3
+asthma$class_no2[asthma$NO2>=as.numeric(summary(asthma$NO2)[5])]<-4
+
+asthma$class_so2[asthma$SO2<as.numeric(summary(asthma$SO2)[2])]<-1
+asthma$class_so2[asthma$SO2>=as.numeric(summary(asthma$SO2)[2]) & asthma$SO2<as.numeric(summary(asthma$SO2)[3]) ]<-2
+asthma$class_so2[asthma$SO2>=as.numeric(summary(asthma$SO2)[3])  & asthma$SO2<as.numeric(summary(asthma$SO2)[5]) ]<-3
+asthma$class_so2[asthma$SO2>=as.numeric(summary(asthma$SO2)[5])]<-4
+
+asthma$class_pm10<-as.factor(asthma$class_pm10)
+asthma$class_o3<-as.factor(asthma$class_o3)
+asthma$class_no2<-as.factor(asthma$class_no2)
+asthma$class_so2<-as.factor(asthma$class_so2)
+
+## Q1=77 Q2=83 Q3=89 男性
+summary(asthma$g_wc[asthma$gender==1])
+## Q1=67 Q2=71 Q3=78 女性
+summary(asthma$g_wc[asthma$gender==2])
+##wc 按照性別不同 分成Q1 Q2 Q3
+asthma$new_wc[asthma$gender==1 & asthma$g_wc<as.numeric(summary(asthma$g_wc[asthma$gender==1])[2])]<-1
+asthma$new_wc[asthma$gender==2 & asthma$g_wc<as.numeric(summary(asthma$g_wc[asthma$gender==2])[2]) ]<-1
+asthma$new_wc[asthma$gender==1 & asthma$g_wc>=as.numeric(summary(asthma$g_wc[asthma$gender==1])[2]) &  asthma$g_wc <as.numeric(summary(asthma$g_wc[asthma$gender==1])[3])]<-2
+asthma$new_wc[asthma$gender==2 & asthma$g_wc>=as.numeric(summary(asthma$g_wc[asthma$gender==2])[2]) &  asthma$g_wc <as.numeric(summary(asthma$g_wc[asthma$gender==2])[3])]<-2
+asthma$new_wc[asthma$gender==1 & asthma$g_wc>=as.numeric(summary(asthma$g_wc[asthma$gender==1])[3]) &  asthma$g_wc <as.numeric(summary(asthma$g_wc[asthma$gender==1])[5])]<-3
+asthma$new_wc[asthma$gender==2 & asthma$g_wc>=as.numeric(summary(asthma$g_wc[asthma$gender==2])[3]) &  asthma$g_wc <as.numeric(summary(asthma$g_wc[asthma$gender==2])[5])]<-3
+asthma$new_wc[asthma$gender==1 & asthma$g_wc>=as.numeric(summary(asthma$g_wc[asthma$gender==1])[5]) ]<-4
+asthma$new_wc[asthma$gender==2 & asthma$g_wc>=as.numeric(summary(asthma$g_wc[asthma$gender==2])[5]) ]<-4
+asthma$new_wc<-as.factor(asthma$new_wc)
+table(asthma$new_wc)
+
+
+##Health
+##asthma
+
+health$class_pm10[health$pm10<as.numeric(summary(health$pm10)[2])]<-1
+health$class_pm10[health$pm10>=as.numeric(summary(health$pm10)[2]) & health$pm10<as.numeric(summary(health$pm10)[3]) ]<-2
+health$class_pm10[health$pm10>=as.numeric(summary(health$pm10)[3]) & health$pm10<as.numeric(summary(health$pm10)[5]) ]<-3
+health$class_pm10[health$pm10>=as.numeric(summary(health$pm10)[5])]<-4
+
+health$class_o3[health$o3<as.numeric(summary(health$o3)[2])]<-1
+health$class_o3[health$o3>=as.numeric(summary(health$o3)[2]) & health$o3<as.numeric(summary(health$o3)[3]) ]<-2
+health$class_o3[health$o3>=as.numeric(summary(health$o3)[3])& health$o3<as.numeric(summary(health$o3)[5]) ]<-3
+health$class_o3[health$o3>=as.numeric(summary(health$o3)[5])]<-4
+
+health$class_no2[health$NO2<as.numeric(summary(health$NO2)[2])]<-1
+health$class_no2[health$NO2>=as.numeric(summary(health$NO2)[2]) & health$NO2<as.numeric(summary(health$NO2)[3]) ]<-2
+health$class_no2[health$NO2>=as.numeric(summary(health$NO2)[3]) & health$NO2<as.numeric(summary(health$NO2)[5]) ]<-3
+health$class_no2[health$NO2>=as.numeric(summary(health$NO2)[5])]<-4
+
+health$class_so2[health$SO2<as.numeric(summary(health$SO2)[2])]<-1
+health$class_so2[health$SO2>=as.numeric(summary(health$SO2)[2]) & health$SO2<as.numeric(summary(health$SO2)[3]) ]<-2
+health$class_so2[health$SO2>=as.numeric(summary(health$SO2)[3])  & health$SO2<as.numeric(summary(health$SO2)[5]) ]<-3
+health$class_so2[health$SO2>=as.numeric(summary(health$SO2)[5])]<-4
+
+health$class_pm10<-as.factor(health$class_pm10)
+health$class_o3<-as.factor(health$class_o3)
+health$class_no2<-as.factor(health$class_no2)
+health$class_so2<-as.factor(health$class_so2)
+
+## Q1=77 Q2=83 Q3=89 男性
+summary(health$g_wc[health$gender==1])
+## Q1=66 Q2=70 Q3=76 女性
+summary(health$g_wc[health$gender==2])
+##wc 按照性別不同 分成Q1 Q2 Q3
+health$new_wc[health$gender==1 & health$g_wc<as.numeric(summary(health$g_wc[health$gender==1])[2])]<-1
+health$new_wc[health$gender==2 & health$g_wc<as.numeric(summary(health$g_wc[health$gender==2])[2]) ]<-1
+health$new_wc[health$gender==1 & health$g_wc>=as.numeric(summary(health$g_wc[health$gender==1])[2]) &  health$g_wc <as.numeric(summary(health$g_wc[health$gender==1])[3])]<-2
+health$new_wc[health$gender==2 & health$g_wc>=as.numeric(summary(health$g_wc[health$gender==2])[2]) &  health$g_wc <as.numeric(summary(health$g_wc[health$gender==2])[3])]<-2
+health$new_wc[health$gender==1 & health$g_wc>=as.numeric(summary(health$g_wc[health$gender==1])[3]) &  health$g_wc <as.numeric(summary(health$g_wc[health$gender==1])[5])]<-3
+health$new_wc[health$gender==2 & health$g_wc>=as.numeric(summary(health$g_wc[health$gender==2])[3]) &  health$g_wc <as.numeric(summary(health$g_wc[health$gender==2])[5])]<-3
+health$new_wc[health$gender==1 & health$g_wc>=as.numeric(summary(health$g_wc[health$gender==1])[5]) ]<-4
+health$new_wc[health$gender==2 & health$g_wc>=as.numeric(summary(health$g_wc[health$gender==2])[5]) ]<-4
+health$new_wc<-as.factor(health$new_wc)
+table(health$new_wc)
+
+
+
+
+##analysis-----------------------
+var<-c("class_g_bmi","class_wc","gender","agegroup","class_education","class_pm10","class_so2",
+       "class_no2","HTN","DM","CVD","HTN_drug","DM_drug","hyperlipidemic_drug","Psychiatric_drug","smoke","metgroup")
+"new_wc"
+for(i in 1:length(var)){
+  formula<-formula(sprintf("FEV1_FVC~%2s",var[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model)$coefficient)
+}
+##
+new<-model.matrix(~class_g_bmi+gender+agegroup+class_education+HTN+DM+CVD+HTN_drug+hyperlipidemic_drug+
+               Psychiatric_drug+class_pm10+class_so2+class_no2+smoke+metgroup+class_g_bmi*gender,data=asthma)
+new<-new[,-1]
+new<-data.frame(new)
+new$pid<-asthma$pid
+new$FEV1_FVC<-asthma$FEV1_FVC
+a<-(names(new)[1:28])
+
+##找出本來會放入的變數
+fit<-geeglm(FEV1_FVC~class_g_bmi2+class_g_bmi3+class_g_bmi4+gender2+agegroup2+agegroup3+class_education2+
+              class_education3+HTN1+DM1+HTN_drug1+hyperlipidemic_drug1+Psychiatric_drug1+class_pm102+
+              class_pm103+class_pm104+class_so22+class_so23+class_so24+class_no22+class_no23+class_no24+
+              smoke2+smoke3+smoke4+metgroup2+metgroup3,data=new,id=pid,corstr ="exchangeable")
+
+
+model<-geeglm(FEV1_FVC~class_g_bmi+gender+agegroup+class_education+HTN+DM+CVD+HTN_drug+hyperlipidemic_drug+
+                Psychiatric_drug+class_pm10+class_so2+class_no2+smoke+metgroup,data=asthma,id=pid,corstr ="exchangeable")
+summary(model)
+gee_stepper(model,formula(model))
+
+##判斷VIF
+m<-lm(FEV1_FVC~class_g_bmi+gender+agegroup+class_education+class_pm10+class_no2+metgroup+hyperlipidemic_drug+HTN,data=asthma)
+library(car)
+vif(m)
+##進行單變量交互項檢查
+##EV1_FVC~class_g_bmi+gender+agegroup+class_education+class_pm10+class_no2+metgroup+hyperlipidemic_drug+HTN
+##BMI CHECK
+var<-c("gender","agegroup","class_education","class_pm10","class_no2","HTN_drug","hyperlipidemic_drug","smoke","metgroup")
+for (i in 1:length(var)) {
+  formula<-formula(sprintf("FEV1_FVC~class_g_bmi*%2s",var[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model))
+  
+}
+# agegroup class_education class_no2 HTN_drug hyperlipidemic_drug
+
+
+#gender check  
+var1<-c("agegroup","class_education","class_pm10","class_no2","HTN_drug","hyperlipidemic_drug","smoke","metgroup")
+
+for (i in 1:length(var)) {
+  formula<-formula(sprintf("FEV1_FVC~gender*%2s",var[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model))
+}
+## agegroup class_education smoke
+
+
+##agegroup check 
+var2<-c("class_education","class_pm10","class_no2","HTN_drug","hyperlipidemic_drug","smoke","metgroup")
+for (i in 1:length(var2)) {
+  formula<-formula(sprintf("FEV1_FVC~agegroup*%2s",var2[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model))
+}
+##class_no2 HTN_drug hyperlipidemic_drug
+
+##class_education check
+var3<-c("class_pm10","class_no2","HTN_drug","hyperlipidemic_drug","smoke","metgroup")
+for (i in 1:length(var3)) {
+  formula<-formula(sprintf("FEV1_FVC~class_education*%2s",var3[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model))
+}
+## class_pm10 HTN_drug hyperlipidemic_drug
+
+
+## class_pm10 check 
+
+var4<-c("class_no2","HTN_drug","hyperlipidemic_drug","smoke","metgroup")
+for (i in 1:length(var4)) {
+  formula<-formula(sprintf("FEV1_FVC~class_pm10*%2s",var4[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model))
+}
+##class_no2 smoke
+
+## class_no2 check 
+
+var5<-c("HTN_drug","hyperlipidemic_drug","smoke","metgroup")
+for (i in 1:length(var5)) {
+  formula<-formula(sprintf("FEV1_FVC~class_no2*%2s",var5[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model))
+}
+##HTN_drug
+
+
+##HTN_drug check 
+var6<-c("hyperlipidemic_drug","smoke","metgroup")
+for (i in 1:length(var6)) {
+  formula<-formula(sprintf("FEV1_FVC~HTN_drug*%2s",var6[i]))
+  model<-geeglm(formula=formula,data=asthma,id=pid,corstr =  "exchangeable")
+  print(summary(model))
+}
+## hyperlipidemic_drug
+
+## hyperlipidemic_drug  check
+model<-geeglm(FEV1_FVC~hyperlipidemic_drug*metgroup,data=asthma,id=pid,corstr =  "exchangeable")
+print(summary(model))
+##smoke check
+model<-geeglm(FEV1_FVC~smoke*metgroup,data=asthma,id=pid,corstr =  "exchangeable")
+print(summary(model))
