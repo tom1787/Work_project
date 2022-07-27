@@ -1,0 +1,544 @@
+libname severe "E:\H107217_1\tom_Asthma_Severe";
+libname data "E:\H107217_1\tom_TWBdata\TWB_NHIRD";
+/*將Asthma的人找出 排除定義不同的藥物*/
+data Severe.Asthma;
+	set severe.twb_match_data_finally4;
+	if asthma_icdtwice =1 then output;
+	drop METFORMIN statin Aspirin Beta_blockers;
+run;
+proc sort data=Severe.Asthma;
+by Release_NO;run;
+
+libname data "E:\H107217_1\tom_TWBdata\TWB_NHIRD";
+PROC IMPORT OUT= ATC_ICS
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_ICS.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+PROC IMPORT OUT= ATC_LABA_ICS
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_LABA_ICS.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+PROC IMPORT OUT= ATC_LAMA
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_LAMA.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+PROC IMPORT OUT= ATC_LTR_antagonist
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_LTR_antagonist.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+PROC IMPORT OUT= ATC_OCS
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_OCS.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+PROC IMPORT OUT= ATC_SABA
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_SABA.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+
+PROC IMPORT OUT= ATC_Xanthine
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_Xanthine.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+
+
+PROC IMPORT OUT= ATC_Xolair
+            DATAFILE= "F:\H107217\Tom\Drugcode\ATC_Xolair.csv"
+            DBMS=CSV REPLACE;
+     GETNAMES=YES;
+     DATAROW=2;run;
+
+ /*藥物代碼*/
+proc sql noprint;
+	select quote(trim(DrugCode)) into: ICS separated by "," from ATC_ICS;
+quit;
+
+proc sql noprint;
+	select quote(trim(DrugCode)) into: LABA_ICS separated by "," from ATC_LABA_ICS;
+quit;
+
+proc sql noprint;
+	select quote(trim(DrugCode)) into: LAMA separated by "," from  ATC_LAMA;
+quit;
+
+proc sql noprint;
+	select quote(trim(DrugCode)) into:LTR_antagonist separated by "," from ATC_LTR_antagonist;
+quit;
+
+proc sql noprint;
+	select quote(trim(DrugCode)) into:OCS separated by "," from ATC_OCS;
+quit;
+
+proc sql noprint;
+	select quote(trim(DrugCode)) into:SABA separated by "," from ATC_SABA;
+quit;
+
+proc sql noprint;
+	select quote(trim(DrugCode)) into: Xanthine separated by "," from ATC_Xanthine;
+quit;
+
+proc sql noprint;
+	select quote(trim(DrugCode)) into:Xolair separated by "," from ATC_Xolair;
+quit;
+
+data  NHIRD ;
+set  data.qc_nhi_new /*放門診+門診醫令+住院+住院醫令每年串起來的檔案*/;
+asthma_code=0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "493") |   substr(ICD9CM_2,1,3) in ("493")  |  substr(ICD9CM_3,1,3) in ( "493") | substr( ICD9CM_4,1,3)  in ( "493")
+|  substr( ICD9CM_5,1,3)  in ( "493") ) then   asthma_code=1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J45") |   substr(ICD9CM_2,1,3) in ("J45")  |  substr(ICD9CM_3,1,3) in ("J45")|  substr( ICD9CM_4,1,3)  in ( "J45")
+|  substr( ICD9CM_5,1,3)  in ( "J45")) then asthma_code=1 ;
+copd_code=0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ("491","492","496") |   substr(ICD9CM_2,1,3) in ("491","492","496")  |  substr(ICD9CM_3,1,3) in ("491","492", "496") |substr( ICD9CM_4,1,3)  in ("491","492","496") |substr( ICD9CM_5,1,3)  in ("491","492","496") ) then   copd_code=1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "J44") |   substr(ICD9CM_2,1,4) in ("J44")  |  substr(ICD9CM_3,1,4) in ( "J44")  |   substr(ICD9CM_4,1,4) in ("J44") |   substr(ICD9CM_5,1,4) in ("J44")) then copd_code=1 ;
+Depression_code=0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_2,1,4)  in ( "3004","2962","2963") 
+  |  substr( ICD9CM_3,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_4,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_5,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_1,1,3)  in ( "311") |  substr( ICD9CM_2,1,3)  in ( "311")   |  substr( ICD9CM_3,1,3)  in ( "311")
+|  substr( ICD9CM_4,1,3)  in ( "311")|  substr( ICD9CM_5,1,3)  in ( "311")) then   Depression_code=1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "F341","F329","F339") |   substr(ICD9CM_2,1,4) in ("F341","F329","F339")  |  substr(ICD9CM_3,1,4) in ( "F341","F329","F339") |  substr(ICD9CM_4,1,4) in ( "F341","F329","F339")|  substr(ICD9CM_5,1,4) in ( "F341","F329","F339")) then Depression_code=1 ;
+bd_code=0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,4)  in ( "2967") |   substr(ICD9CM_2,1,4) in ("2967")  |  substr(ICD9CM_3,1,4) in ( "2967") |  substr(ICD9CM_4,1,4) in ( "2967") |  substr(ICD9CM_5,1,4) in ( "2967")  ) then  bd_code=1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "F319") |   substr(ICD9CM_2,1,4) in ("F319")  |  substr(ICD9CM_3,1,4) in ( "F319")|  substr(ICD9CM_4,1,4) in ( "F319")|  substr(ICD9CM_5,1,4) in ( "F319") ) then bd_code=1 ;
+OSA_code=0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,5)  in ( "32723") |   substr(ICD9CM_2,1,5) in ("32723")  |  substr(ICD9CM_3,1,5) in ( "32723") |  substr(ICD9CM_4,1,5) in ( "32723")|  substr(ICD9CM_5,1,5) in ( "32723")) then  OSA_code=1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,5)  in ( "G4733") |   substr(ICD9CM_2,1,5) in ("G4733")  |  substr(ICD9CM_3,1,5) in ( "G4733")  |  substr(ICD9CM_4,1,5) in ( "G4733")  |  substr(ICD9CM_5,1,5) in ( "G4733") ) then OSA_code=1 ;
+GERD_code=0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,5)  in ( "53081") |   substr(ICD9CM_2,1,5) in ("53081")  |  substr(ICD9CM_3,1,5) in ( "53081") |  substr(ICD9CM_4,1,5) in ( "53081") |  substr(ICD9CM_5,1,5) in ( "53081") ) then  GERD_code=1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "K219") |   substr(ICD9CM_2,1,4) in ("K219")  |  substr(ICD9CM_3,1,4) in ( "K219") |  substr(ICD9CM_4,1,4) in ( "K219") |  substr(ICD9CM_5,1,4) in ( "K219")) then GERD_code=1 ;
+/* allergic rhinitis */
+AR_code =0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "477") |   substr(ICD9CM_2,1,3) in ("477")  |  substr(ICD9CM_3,1,3) in ( "477") |  substr(ICD9CM_4,1,3) in ( "477") |  substr(ICD9CM_5,1,3) in ( "477") ) then AR_code =1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J30") |   substr(ICD9CM_2,1,3) in ("J30")  |  substr(ICD9CM_3,1,3) in ( "J30") |  substr(ICD9CM_4,1,3) in ( "J30") |  substr(ICD9CM_5,1,3) in ( "J30")) then AR_code =1 ;
+/* Nasal polyposis(ICD9 471 ICD10 J33) */
+NP_code =0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "471") |   substr(ICD9CM_2,1,3) in ("471")  |  substr(ICD9CM_3,1,3) in ( "471") |  substr(ICD9CM_4,1,3) in ( "471") |  substr(ICD9CM_5,1,3) in ( "471") ) then NP_code =1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J33") |   substr(ICD9CM_2,1,3) in ("J33")  |  substr(ICD9CM_3,1,3) in ( "J33") |  substr(ICD9CM_4,1,3) in ( "J33") |  substr(ICD9CM_5,1,3) in ( "J33")) then NP_code =1 ;
+/*Chronic sinusitis(ICD9 473 ICD10 J32) */
+CS_code =0;
+If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "473") |   substr(ICD9CM_2,1,3) in ("473")  |  substr(ICD9CM_3,1,3) in ( "473") |  substr(ICD9CM_4,1,3) in ( "473") |  substr(ICD9CM_5,1,3) in ( "473") ) then CS_code =1;
+If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J32") |   substr(ICD9CM_2,1,3) in ("J32")  |  substr(ICD9CM_3,1,3) in ( "J32") |  substr(ICD9CM_4,1,3) in ( "J32") |  substr(ICD9CM_5,1,3) in ( "J32")) then CS_code =1 ;
+
+/*asthma drug */
+ICS =0;
+if DRUG_NO in (&ICS )then ICS =1;
+if ORDER_CODE in (&ICS)then ICS =1;
+
+LTR_antagonist=0;
+if DRUG_NO in (&LTR_antagonist) then LTR_antagonist=1;
+if  ORDER_CODE in (&LTR_antagonist) then LTR_antagonist=1;
+
+Xanthine=0;
+if DRUG_NO in (&Xanthine) then Xanthine=1;
+if  ORDER_CODE in (&Xanthine) then Xanthine=1;
+
+SABA=0;
+if DRUG_NO  in (&SABA) then SABA=1;
+if  ORDER_CODE in (&SABA) then SABA=1;
+
+LABA_ICS=0;
+if DRUG_NO in (&LABA_ICS) then LABA_ICS=1;
+if  ORDER_CODE in (&LABA_ICS) then LABA_ICS=1;
+
+LAMA=0;
+if DRUG_NO in (&LAMA) then LAMA=1;
+if  ORDER_CODE in (&LAMA) then LAMA=1;
+
+Xolair=0;
+if DRUG_NO  in (&Xolair) then Xolair=1;
+if ORDER_CODE in (&Xolair) then Xolair=1;
+
+OCS=0;
+if DRUG_NO  in (&OCS)then OCS=1 ;
+if  ORDER_CODE in (&OCS)then OCS=1 ;
+
+asthmadrug=0;
+if ICS =1 or LTR_antagonist=1 or Xanthine=1 or SABA=1 or LABA_ICS=1 then asthmadrug=1;
+
+If FUNC_DATE not=" " then indate1=FUNC_DATE;
+If IN_DATE not=" " then indate1= IN_DATE;
+ run;
+/* Asthma控制-肥胖與因氣喘所致的醫療服務利用之關係*/
+
+
+/*抓調查前後一年的筆數 總共2年*/
+data survey;
+	set NHIRD;
+	year=substr(indate1,1,4);
+	month=substr(indate1,5,2);
+	day=substr(indate1,7,2);
+	date=MDY(month,day,year);
+	pre_surveyday=intnx('year', SURVEY_DATE,-1,'same');
+	post_surveyday= intnx('year', SURVEY_DATE, 1,'same');
+	format pre_surveyday post_surveyday date  yymmdd10.;
+	drop year month day;
+run;
+proc SQL;
+	create table ASL as
+		select*
+	from survey
+		where  date >= pre_surveyday  and    date <= post_surveyday;
+quit;
+data ASL1;
+	set ASL;
+	keep Release_NO ICD9CM_1 ICD9CM_2 ICD9CM_3 ICD9CM_4 ICD9CM_5 
+		CASE_TYPE TRAN_CODE DRUG_NO ORDER_CODE date 
+		ICS LTR_antagonist Xanthine SABA LABA_ICS LAMA Xolair OCS 
+		asthmadrug;
+run;
+/*計算門急診(not 02,09)以及住院(02,09)次數*/
+data out quick emer;
+	set ASL1;
+	if   ((substr( ICD9CM_1,1,3)  in ( "493") |   substr(ICD9CM_2,1,3) in ("493")  |  substr(ICD9CM_3,1,3) in ( "493") | substr( ICD9CM_4,1,3)  in ( "493")|  substr( ICD9CM_5,1,3)  in ( "493") ) |  
+		  (substr( ICD9CM_1,1,3)  in ( "J45") |   substr(ICD9CM_2,1,3) in ("J45")  |  substr(ICD9CM_3,1,3) in ("J45") |  substr( ICD9CM_4,1,3)  in ( "J45") | substr( ICD9CM_5,1,3)  in ( "J45"))) 
+		  & CASE_TYPE not in ("02","09") &  TRAN_CODE in (" ") then output out  ;
+	if ((substr( ICD9CM_1,1,3)  in ( "493") |   substr(ICD9CM_2,1,3) in ("493")  |  substr(ICD9CM_3,1,3) in ( "493") | substr( ICD9CM_4,1,3)  in ( "493")|  substr( ICD9CM_5,1,3)  in ( "493") ) |
+		( substr( ICD9CM_1,1,3)  in ( "J45") |   substr(ICD9CM_2,1,3) in ("J45")  |  substr(ICD9CM_3,1,3) in ("J45")|  substr( ICD9CM_4,1,3)  in ( "J45") | substr( ICD9CM_5,1,3)  in ( "J45")))
+		& CASE_TYPE  in ("02","09") &  TRAN_CODE in (" ") then output quick ;
+	if  ((substr( ICD9CM_1,1,3)  in ( "493") |   substr(ICD9CM_2,1,3) in ("493")  |  substr(ICD9CM_3,1,3) in ( "493") | substr( ICD9CM_4,1,3)  in ( "493")|  substr( ICD9CM_5,1,3)  in ( "493") ) |
+		( substr( ICD9CM_1,1,3)  in ( "J45") |   substr(ICD9CM_2,1,3) in ("J45")  |  substr(ICD9CM_3,1,3) in ("J45")|  substr( ICD9CM_4,1,3)  in ( "J45") | substr( ICD9CM_5,1,3)  in ( "J45")))
+		&  TRAN_CODE not in (" ") then output emer ;
+	Keep Release_NO  date;
+run;
+
+/*將日期歸一 並計算次數*/
+proc sql;
+	create table out1 as 
+		select distinct date,Release_NO
+			from out
+				group by  Release_NO,date;
+	create table out2 as 
+		select  Release_NO, count(Release_NO) as out
+			from out1
+				group by  Release_NO;
+	create table quick1 as 
+		select distinct date,Release_NO
+			from quick
+				group by  Release_NO,date;
+	create table quick2 as 
+		select  Release_NO, count(Release_NO) as quick
+			from quick1
+				group by  Release_NO;
+	create table emer1 as 
+		select distinct date,Release_NO
+			from emer
+				group by  Release_NO,date;
+	create table emer2 as 
+		select  Release_NO, count(Release_NO) as emer
+			from emer1
+				group by  Release_NO;
+quit;
+
+/*計算是否為 這5年內(正負2年) 是否為 exacerbation(惡化的Asthma)*/
+data exacerbation;
+	Set  ASL1;
+
+	If ( substr( ICD9CM_1,1,5)  in ( "49392") |   substr(ICD9CM_2,1,5) in ("49392")  |  substr(ICD9CM_3,1,5) in ( "49392") | substr( ICD9CM_4,1,5)  in ( "49392") |  substr( ICD9CM_5,1,5)  in ( "49392") ) | 
+		( substr( ICD9CM_1,1,6)  in ( "J45901") |   substr(ICD9CM_2,1,6) in ("J45901")  |  substr(ICD9CM_3,1,6) in ("J45901")|  substr( ICD9CM_4,1,6)  in ( " J45901")|  substr( ICD9CM_5,1,6)  in ( " J45901")) then
+		output;
+	keep Release_NO;
+run;
+
+proc sort data= exacerbation;
+	by Release_NO;
+run;
+data exacerbation1;
+	set exacerbation;
+	by Release_NO;
+	exacerbation=1;
+	if first.Release_NO then output;
+	keep Release_NO exacerbation;
+run;
+/*合併回去Severe.Asthma*/
+proc sql ;
+	create table A1 as 
+	select * 
+	from Severe.Asthma as a left join  Out2 as b 
+	on a.Release_no=b.Release_no;
+	create table A2 as 
+	select * 
+	from A1 as a left join  Quick2 as b 
+	on a.Release_no=b.Release_no;
+	create table A3 as 
+	select * 
+	from A2 as a left join  Emer2 as b 
+	on a.Release_no=b.Release_no;
+	create table A4 as 
+	select * 
+	from A3 as a left join  exacerbation1 as b 
+	on a.Release_no=b.Release_no;
+quit;
+/*control*/
+data Asthma1;
+	set A4;
+	if out=. then
+		out=0;
+	if Quick=. then
+		Quick=0;
+	if Emer=. then
+		Emer=0;
+	if exacerbation=. then
+		exacerbation=0;
+	/*control level 2年內每年有2次以上或是惡化狀態*/
+	if  Emer/2>=2 or Quick/2=>2 or exacerbation=1 then	control_level=3;
+	else if (Emer>=1 and Emer<2 ) or  (Quick>=1 and Quick<2) then control_level=2;
+	else control_level=1;
+run;
+
+
+
+/*針對不同人不同天藥物的使用合併 ASL*/
+data p ;
+set ASL1;
+/*Medication history */
+/*糖尿病用藥(METFORMIN) */
+METFORMIN=0;
+if  DRUG_NO in ('A035324100', 'A0353241G0', 'A038498100', 'A0384981G0', 'A039546100', 'A042464100', 'A0424641G0', 'A046686100', 'AB34096100', 'AB340961G0', 'AB35665100', 'AB356651G0', 'AB408351G0', 'AB41233100', 'AB412331G0', 'AB49599100', 'AC36201100', 'AC362011G0', 'AC36204100', 'AC362041G0', 'AC36820100', 'AC368201G0', 'AC38680100', 'AC40047100', 'AC400471G0', 'AC40098100', 'AC40119100', 'AC401191G0', 'AC40781100', 'AC407811G0', 'AC407811G4', 'AC407811G7', 'AC417501G0', 'AC42916100', 'AC429161G0', 'AC44233100', 'AC49531100', 'AC495991G0', 'AC57265100', 'AC57979100', 'AC58072100', 'AC58257100', 'AC58534100', 'AC585341G0', 'AC59686100', 'AC596861G0' ) then METFORMIN=1;
+if ORDER_CODE in ('A035324100', 'A0353241G0', 'A038498100', 'A0384981G0', 'A039546100', 'A042464100', 'A0424641G0', 'A046686100', 'AB34096100', 'AB340961G0', 'AB35665100', 'AB356651G0', 'AB408351G0', 'AB41233100', 'AB412331G0', 'AB49599100', 'AC36201100', 'AC362011G0', 'AC36204100', 'AC362041G0', 'AC36820100', 'AC368201G0', 'AC38680100', 'AC40047100', 'AC400471G0', 'AC40098100', 'AC40119100', 'AC401191G0', 'AC40781100', 'AC407811G0', 'AC407811G4', 'AC407811G7', 'AC417501G0', 'AC42916100', 'AC429161G0', 'AC44233100', 'AC49531100', 'AC495991G0', 'AC57265100', 'AC57979100', 'AC58072100', 'AC58257100', 'AC58534100', 'AC585341G0', 'AC59686100', 'AC596861G0' ) then METFORMIN=1;
+/*高血脂用藥(statin) */
+statin=0;
+if DRUG_NO in ('A046022100', 'AA58282100', 'AB46029100', 'AB48586100', 'AB49454100', 'AC39307100', 'AC39403100', 'AC42539100', 'AC42558100', 'AC47341100', 'AC47924100', 'AC48513100', 'AC48813100', 'AC49360100', 'AC55268100', 'AC55272100', 'AC56804100', 'AC57126100', 'AC57805100', 'AC57809100',  'AC58525100', 'AC58526100', 'AC58605100', 'AC59265100', 'AC59266100', 'AC60174100', 'B024297100', 'B025412100', 'BA26504100',  'BC26147100', 'BC26226100', 'BC26367100', 'BC26368100', 'BC26497100', 'BC26505100', 'BC26582100', 'BC26900100', 'BC27044100', 'BC27256100', 'BC27339100') then statin=1;
+if ORDER_CODE in ('A046022100', 'AA58282100', 'AB46029100', 'AB48586100', 'AB49454100', 'AC39307100', 'AC39403100', 'AC42539100', 'AC42558100', 'AC47341100', 'AC47924100', 'AC48513100', 'AC48813100', 'AC49360100', 'AC55268100', 'AC55272100', 'AC56804100', 'AC57126100', 'AC57805100', 'AC57809100',  'AC58525100', 'AC58526100', 'AC58605100', 'AC59265100', 'AC59266100', 'AC60174100', 'B024297100', 'B025412100', 'BA26504100',  'BC26147100', 'BC26226100', 'BC26367100', 'BC26368100', 'BC26497100', 'BC26505100', 'BC26582100', 'BC26900100', 'BC27044100', 'BC27256100', 'BC27339100') then statin=1;
+/*Aspirin*/
+Aspirin=0;
+if  DRUG_NO in( "A003092100","A004813100","A021870100","A023534100","A024465100","A025160100","A026164100","A032045100","A036599100","A0376542B9","A039169277","A040826100","A0429341G0","A044016100","A0440161G0","AC37344100","AC373441G0","AC37702100","AC41220100","AC41814100","AC418141G0","AC41823209","AC41823277","AC42774100","AC42934100","AC43309100","AC433091G0","AC43664100","AC436641G0","AC44176100","AC441761G0","AC495361G0","BC24025100","BC240251G0","N011693100") then Aspirin=1;
+if ORDER_CODE in ( "A003092100","A004813100","A021870100","A023534100","A024465100","A025160100","A026164100","A032045100","A036599100","A0376542B9","A039169277","A040826100","A0429341G0","A044016100","A0440161G0","AC37344100","AC373441G0","AC37702100","AC41220100","AC41814100","AC418141G0","AC41823209","AC41823277","AC42774100","AC42934100","AC43309100","AC433091G0","AC43664100","AC436641G0","AC44176100","AC441761G0","AC495361G0","BC24025100","BC240251G0","N011693100") then Aspirin=1;
+/* Beta_blockers-用於狹心症、高血壓*/
+Beta_blockers=0;
+if  DRUG_NO  in  ('BC20452100', 'BC22071100', 'BC24532100', 'AC32350221', 'AC39703100', 'AC10332100', 'B022143100', 'BC221431G0', 'A016350100', 'A018250100', 'A0182501G0', 'A020927100', 'A022259100', 'A029881100', 'A0339001G0', 'AB09102100', 'AB091021G0', 'AB18251100', 'AB43852100', 'BC21303100', 'BC24977414', 'AC46867100', 'A031032100', 'A036844100', 'AB41956100', 'AC29301100', 'AC29313100', 'BC16888100', 'BC17125100', 'BC24039100', 'AC49915100', 'AC49623100', 'AC49544100', 'AC49504100', 'AC49083100', 'AC48905100', 'AB55984100', 'AB48439100', 'AB47538100', 'AB45348100', 'AC50061100', 'AC57868100', 'AC58077100', 'AB44619100', 'AC45354100', 'BC21530100', 'BC22553100', 'A041679100', 'AB29478100', 'AB294781G0', 'AB32322100', 'AB323221G0', 'AB33029100', 'AB330291G0', 'AB34359100', 'AB343591G0', 'AB361291G0', 'AB36130100', 'AB361301G0', 'AB38867100', 'AB388671G0', 'AB44843100', 'AB448431G0', 'AB515971G0', 'AC25840100', 'AC258401G0', 'AC27452100', 'AC274521G0', 'AC29735100', 'AC297351G0', 'AC29804100', 'AC31223100', 'AC312231G0', 'AC33124100', 'AC331241G0', 'AC34300100', 'AC35367100', 'AC353671G0', 'AC36129100', 'AC37928100', 'AC379281G0', 'AC39816100', 'AC398161G0', 'AC39843100', 'AC398431G0', 'AC41497100', 'AC414971G0', 'AC43598100', 'AC435981G0', 'AC43704100', 'AC437041G0', 'AC44163100', 'BC221591G0', 'BC221601G0') then Beta_blockers=1;
+if ORDER_CODE in ('BC20452100', 'BC22071100', 'BC24532100', 'AC32350221', 'AC39703100', 'AC10332100', 'B022143100', 'BC221431G0', 'A016350100', 'A018250100', 'A0182501G0', 'A020927100', 'A022259100', 'A029881100', 'A0339001G0', 'AB09102100', 'AB091021G0', 'AB18251100', 'AB43852100', 'BC21303100', 'BC24977414', 'AC46867100', 'A031032100', 'A036844100', 'AB41956100', 'AC29301100', 'AC29313100', 'BC16888100', 'BC17125100', 'BC24039100', 'AC49915100', 'AC49623100', 'AC49544100', 'AC49504100', 'AC49083100', 'AC48905100', 'AB55984100', 'AB48439100', 'AB47538100', 'AB45348100', 'AC50061100', 'AC57868100', 'AC58077100', 'AB44619100', 'AC45354100', 'BC21530100', 'BC22553100', 'A041679100', 'AB29478100', 'AB294781G0', 'AB32322100', 'AB323221G0', 'AB33029100', 'AB330291G0', 'AB34359100', 'AB343591G0', 'AB361291G0', 'AB36130100', 'AB361301G0', 'AB38867100', 'AB388671G0', 'AB44843100', 'AB448431G0', 'AB515971G0', 'AC25840100', 'AC258401G0', 'AC27452100', 'AC274521G0', 'AC29735100', 'AC297351G0', 'AC29804100', 'AC31223100', 'AC312231G0', 'AC33124100', 'AC331241G0', 'AC34300100', 'AC35367100', 'AC353671G0', 'AC36129100', 'AC37928100', 'AC379281G0', 'AC39816100', 'AC398161G0', 'AC39843100', 'AC398431G0', 'AC41497100', 'AC414971G0', 'AC43598100', 'AC435981G0', 'AC43704100', 'AC437041G0', 'AC44163100', 'BC221591G0', 'BC221601G0') then Beta_blockers=1;
+run;
+
+/*歸日期 */
+proc sql;
+	create table ASL2 as 
+		select Release_NO ,date,sum(SABA) as SABA1,sum(ICS) as ICS1 ,sum(LTR_antagonist) as LTR_antagonist1  ,sum(Xanthine) as Xanthine1 ,
+			sum( LABA_ICS) as LABA_ICS1 ,sum(LAMA) as LAMA1 ,sum(Xolair) as Xolair1 ,sum(OCS) as OCS1,sum(METFORMIN) as  METFORMIN1,
+			sum(statin) as statin1,sum(Aspirin) as Aspirin1,sum(Beta_blockers) as Beta_blockers1
+		from p
+			group by Release_NO ,date;
+run;
+/*2年間 METFORMIN statin Aspirin Beta_blockers 是否有用藥情況*/
+/*歸人*/
+proc sql;
+	create table drug as
+	select Release_NO,sum(METFORMIN1) as METFORMIN_count , sum(statin1)as statin_count , 
+			sum(Aspirin1) as Aspirin_count,sum(Beta_blockers1) as Beta_blockers_count
+	from ASL2
+	group by Release_NO;
+quit;
+
+data Severe.Medication_history;
+	set drug;
+	METFORMIN=0;
+	if METFORMIN_count>=1 then METFORMIN=1;
+	statin=0;
+	if statin_count>=1 then statin=1;
+	Aspirin=0;
+	if Aspirin_count>=1 then Aspirin=1;
+	Beta_blockers=0;
+	if Beta_blockers_count>=1 then Beta_blockers=1;
+	Keep Release_No  METFORMIN statin Aspirin Beta_blockers;
+run;
+
+/*嚴重程度判斷 */
+
+/*SABA計算*/
+data SABA;
+	set ASL2;
+	if SABA1 >=1 then output;
+	keep Release_NO date SABA1;
+run;
+
+proc sort data=SABA;
+by Release_No  date;run;
+/*計算一年內是否有拿三次SABA藥物*/
+data SABA1 ;
+	set SABA;
+	by Release_No date;
+	lag_date= ifn( first. Release_NO , (.) , lag(date) );
+	lag_date1= ifn( first. Release_NO , (.) , lag(lag_date) );
+	SABA2=0;
+	yr_SABA=date - lag_date1;
+	if yr_SABA<365 and yr_SABA not=. then SABA2=1 ;
+run;
+/*匯出SABA1 利用R 處理後匯入 SABA2 (SABA2=1 當下一年有累計三次以上  SABA2= 0  有SABA 但無超過三次以上)*/
+data SABA2 ;
+	set Severe.SABA2;
+	keep Release_No date  SABA2 ;
+run;
+
+/*合併回ASL2*/
+proc sql ;
+	create table ASL3 as
+	select * 
+	from ASL2 as a  left join SABA2 as b 
+	on a.Release_NO=b.Release_no and a.date=b.date;
+quit; 
+
+
+/*Asthma嚴重程度分組*/
+
+data ASL4;
+	set  ASL3;
+
+	/* mild：一年只拿了1-2次SABA隨身備用或常規使用ICS/ Xanthine/ LTR antagonist單方藥物個案*/
+	if ICS1=1 or  LTR_antagonist1=1 or Xanthine1=1 then severe_level=1;
+
+	if SABA2=0 then	severe_level=1;
+
+	/*moderate：長期使用LABA/ICS */
+	if LABA_ICS1>=1 then severe_level=2;
+
+	if ICS1>=1 and LTR_antagonist1>=1 then severe_level=2;
+
+	if ICS1>=1 and Xanthine1>=1 then severe_level=2;
+
+	/*severe：LABA/ICS/LAMA,或加上 oral steroid 或加上xolair*/
+	if LABA_ICS1>=1 and  LAMA1>=1 then	severe_level=3;
+
+	if ICS1>=1 and LTR_antagonist1>=1 and  LAMA1>=1 then	severe_level=3;
+
+	if ICS1>=1 and Xanthine1>=1 and  LAMA1>=1 then	severe_level=3;
+
+	if LABA_ICS1>=1 and  Xolair1>=1 then	severe_level=3;
+
+	if ICS1>=1 and LTR_antagonist1>=1 and  Xolair1>=1 then	severe_level=3;
+
+	if ICS1>=1 and Xanthine1>=1 and  Xolair1>=1 then	severe_level=3;
+
+	if LABA_ICS1>=1 and  OCS1>=1 then	severe_level=3;
+
+	if ICS1>=1 and LTR_antagonist1>=1 and  OCS1>=1 then	severe_level=3;
+
+	if ICS1>=1 and Xanthine1>=1 and  OCS1>=1 then	severe_level=3;
+run;
+
+proc sort data= ASL4;
+by Release_No date;
+run;
+
+
+
+/*因為是不同天的情況 故考慮這2年間 嚴重程度最不好的情形*/
+proc sql ;
+	create table ASL5 as 
+	select  Release_No ,max(severe_level) as severe_level_max
+	from ASL4
+	group by Release_no;
+quit;
+
+/*與Asthma 做合併*/
+proc sql;
+	create table Asthma_finally as
+	select * 
+	from Asthma1 as a left join ASL5 as b
+	on a.Release_no=b.Release_NO;
+quit;
+
+
+/*最終data*/
+data Severe.Asthma;
+	set  Asthma_finally;
+
+	if severe_level_max=. | severe_level_max=1 then
+		severe_level=1;
+
+	if severe_level_max=2 then
+		severe_level=2;
+
+	if severe_level_max=3 then
+		severe_level=3;
+	drop severe_level_max;
+run;
+
+proc freq data= Severe.Asthma;
+	table control_level severe_level;
+run;
+
+
+/*Data Matching*/
+data Severe.Asthma;
+	set  Severe.Asthma;
+	severe_people=0;
+	control_people=0;
+	if severe_level=2 or severe_level=3 then severe_people=1;
+    if control_level=2 or control_level=3 then control_people=1;
+	if (control_level=2 or control_level=3) and severe_level=0 then  severe_people=.;
+	if (severe_level=2 or severe_level=3) and control_level=0 then  control_people=.;
+run;
+data Control;
+	set  Severe.Asthma;
+	if control_people=. then delete;
+run;
+data Severe;
+	set  Severe.Asthma;
+	if severe_people=. then delete;
+run;
+/*match   data.twb_asthma_icdtwice 1:3*/
+proc psmatch data=Control;
+   class control_people  sex ;
+   psmodel control_people(treated='1') = sex  twbage;
+   match  method=greedy(k=3 ORDER=random(SEED=666)) distance=lps  ;
+   assess lps var=( sex twbage) / weight=none plots=(boxplot barchart);
+  output out(obs=match)=Severe.match_control  matchid=_MatchID;
+run;
+
+proc sort data=Severe.match_control;
+   by Release_no;
+run;
+
+proc psmatch data=Severe;
+   class Severe_people  sex ;
+   psmodel Severe_people(treated='1') = sex  twbage;
+   match  method=greedy(k=3 ORDER=random(SEED=666)) distance=lps  ;
+   assess lps var=( sex twbage) / weight=none plots=(boxplot barchart);
+  output out(obs=match)=Severe.match_severe  matchid=_MatchID;
+run;
+
+proc sort data=Severe.match_severe;
+   by Release_no;
+run;
+
+
+
+/* IID 需要更改長度*/
+data bb ;
+	set data.gene_id;
+	iid_new=iid;
+	keep  Release_no iid_new ;
+run;
+proc  sort  data=bb;
+by Release_no ;
+run;
+/*將IID 改為正確的長度*/
+data Severe.match_control;
+	merge Severe.match_control(in=a ) bb (in=b);
+	by   Release_no;
+	if a;
+	drop iid ;
+	rename iid_new=IID;
+run;
+
+data match_control_ID;
+	set Severe.match_control;
+	keep Release_no;
+run;
+data Severe.match_severe;
+	merge Severe.match_severe(in=a ) bb (in=b);
+	by   Release_no;
+	if a;
+	drop iid ;
+	rename iid_new=IID;
+run;
+
+data match_severe_ID;
+	set Severe.match_severe;
+	keep Release_no;
+run;
+
