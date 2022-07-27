@@ -1,0 +1,297 @@
+/*連續變項 */
+proc means data=tom.twb_match_data_finally2;
+class asthma_icdtwice;
+var ppm25 score_ASTHMA_fix score_BMI score_WC_c score_WHtR_c;
+run;
+/*類別變項 */
+proc freq data=tom.twb_match_data_finally2;
+ /*社會人口學*/ 
+table (age_group sex edu_group
+/*家族史*/ 
+asthma_parent asthma_sibling dep_parent MD_parent
+/*疾病史*/
+NP CS AR copd Depression bd OSA GERD 
+/*健康行為*/
+class_Bmi class_wc wc_hei_class mets_class smoke_class SMK_2ND DRK_new)* asthma_icdtwice;
+run;
+
+/*單變量 條件羅吉斯回歸*/
+proc logistic data=tom.twb_match_data_finally2; strata _MatchID; model asthma_icdtwice (event='1')=  score_asthma_fix; run;
+proc logistic data=tom.twb_match_data_finally2; strata _MatchID; model asthma_icdtwice (event='1')=  score_BMI; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; model asthma_icdtwice (event='1')=  score_WC; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; model asthma_icdtwice (event='1')=  score_WHtR; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; model asthma_icdtwice (event='1')=  score_WC_c; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; model asthma_icdtwice (event='1')=  score_WHtR_c; run;
+
+/*asthma_parent*/
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class asthma_parent (ref="0")/ param=ref; model asthma_icdtwice (event='1')= asthma_parent; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class asthma_sibling(ref="0")/ param=ref; model asthma_icdtwice (event='1')=asthma_sibling; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class dep_parent(ref="0")/ param=ref; model asthma_icdtwice (event='1')=dep_parent; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class MD_parent(ref="0")/ param=ref; model asthma_icdtwice (event='1')= MD_parent; run;
+/*disease*/
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class NP(ref="0")/ param=ref; model asthma_icdtwice (event='1')= NP; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class CS(ref="0")/ param=ref; model asthma_icdtwice (event='1')= CS; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class AR(ref="0")/ param=ref; model asthma_icdtwice (event='1')= AR; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class copd(ref="0")/ param=ref; model asthma_icdtwice (event='1')= copd; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class Depression(ref="0")/ param=ref; model asthma_icdtwice (event='1')=  Depression; run;
+
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class bd(ref="0")/ param=ref; model asthma_icdtwice (event='1')=  bd; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class OSA(ref="0")/ param=ref; model asthma_icdtwice (event='1')=  OSA; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class GERD(ref="0")/ param=ref; model asthma_icdtwice (event='1')= GERD ; run;
+/*obesity*/
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class class_wc(ref="0")/ param=ref; model asthma_icdtwice (event='1')= class_wc ; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class class_BMI(ref="2")/ param=ref;  model asthma_icdtwice (event='1')= class_BMI ; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class wc_hei_class (ref="0")/ param=ref; model asthma_icdtwice (event='1')= wc_hei_class ; run;
+/*met*/
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; /* class groupmets(ref="1")/ param=ref; */model asthma_icdtwice (event='1')= groupmets ; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class mets_class(ref="0")/ param=ref; model asthma_icdtwice (event='1')= mets_class ; run;
+/*smoke*/
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; /* class smk_group(ref="1")/ param=ref; */ model asthma_icdtwice (event='1')= smk_group ; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; model asthma_icdtwice (event='1')= smoke_class ; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class SMK_2ND(ref="1")/ param=ref; model asthma_icdtwice (event='1')=SMK_2ND ; run;
+/*drink*/
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; /*class DRK(ref="1")/ param=ref; */  model asthma_icdtwice (event='1')= DRK ; run;
+proc logistic data= tom.twb_match_data_finally2; strata _MatchID; class DRK_new(ref="0")/ param=ref; model asthma_icdtwice (event='1')= DRK_new ; run;
+/*pm*/
+proc logistic data=  tom.twb_match_data_finally2;  strata _MatchID;  model asthma_icdtwice (event='1')= ppm25 ; run;
+
+Model
+建立模型 排除AS and CR
+libname tom " E:\H107217_1\tom_TWBdata\TWB_matching";
+
+單變量
+分析 表型 基因 交互作用
+proc logistic data=tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class    class_bmi(ref="2") / param=ref;  
+model asthma_icdtwice (event='1')=   class_BMI   ;
+run;
+proc logistic data=tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class    edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0")  copd(ref="0") Depression(ref="0")  Hypertension(ref="0")   (ref="0") / param=ref;  
+model asthma_icdtwice (event='1')=    score_BMI   score_Asthma_fix  edu_group  asthma_parent asthma_sibling  copd Depression  Hypertension      ;
+run;
+proc logistic data=tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class    class_bmi(ref="2")  / param=ref;  
+model asthma_icdtwice (event='1')=   class_BMI  |  score_BMI ;
+run;
+
+
+多變量分析
+以GENE_score 代替本身的變數 加入交互項  並利用逐步回歸選取模型  
+
+/*基因以連續進行分析*/
+
+/*  BMI Asthma score    */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_bmi(ref="2") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") NP(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1")/ param=ref;  
+model asthma_icdtwice (event='1')=   class_BMI  score_Asthma_fix   edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/*Asthma score  Bmi  score  */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_bmi(ref="2") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")   copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") / param=ref;  
+model asthma_icdtwice (event='1')=   score_BMI   |  score_Asthma_fix    edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/* BMI, Asthma score, BMI score   */
+
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_bmi(ref="2") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") AR(ref="0") NP(ref="0")  CS(ref="0") copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") SMK_2ND(ref="1")     / param=ref;    
+model asthma_icdtwice (event='1')=  class_BMI  score_BMI  score_Asthma_fix   edu_group  asthma_parent asthma_sibling  NP   copd Depression  GERD Hypertension    ppm25 ;
+run;
+
+
+
+/* WC Asthma score    */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_wc(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1"    / param=ref;  
+model asthma_icdtwice (event='1')=   class_wc   score_Asthma_fix   edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/*Asthma score WC score */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_wc(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0") copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1")/ param=ref;  
+model asthma_icdtwice (event='1')=   score_wc_c   score_Asthma_fix    edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/* WC, Asthma score, WC score   */
+
+proc logistic data= tom.twb_match_data_finally2 ;   
+strata X_MatchID;   
+class   sex(ref="1") class_wc(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") AR(ref="0") NP(ref="0")  CS(ref="0") copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") SMK_2ND(ref="1")     / param=ref;    
+model asthma_icdtwice (event='1')=  class_wc   score_wc_c  score_Asthma_fix   edu_group  asthma_parent asthma_sibling  NP   copd Depression  GERD Hypertension    ppm25 
+  ;
+run;
+
+
+
+/* WHtR Asthma score     */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") wc_hei_class(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") / param=ref;  
+model asthma_icdtwice (event='1')=   wc_hei_class   score_Asthma_fix   edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/*Asthma score WHtR score */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") wc_hei_class(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")   copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") / param=ref;  
+model asthma_icdtwice (event='1')=   score_WHtR_c   score_Asthma_fix    edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/* WHtR, Asthma score ,WHtR score   */
+
+proc logistic data=tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") wc_hei_class(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") AR(ref="0") 
+NP(ref="0")  CS(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") SMK_2ND(ref="1")     / param=ref;    
+model asthma_icdtwice (event='1')=  wc_hei_class   score_WHtR_c  score_Asthma_fix   edu_group  asthma_parent asthma_sibling  NP   copd Depression  GERD Hypertension    ppm25 
+  ;
+run;
+
+
+/*基因以分類進行分析*/
+proc means data=tom.twb_match_data_finally2 q3;
+var score_Asthma_fix score_Bmi   score_wc_c score_WHtR_c; run;
+
+data tom.twb_match_data_finally2;    
+set tom.twb_match_data_finally2;    
+ score_asthma_fix_class=0;
+if score_asthma_fix> 0.6759388 then score_asthma_fix_class=1;
+score_bmi_class=0;
+if score_bmi >0.6819127   then score_bmi_class=1;
+score_wc_c_class=0;
+if score_wc_c >0.6713622   then score_wc_c_class=1;
+score_WHtR_c_class=0;
+if score_WHtR_c >0.6658694    then score_WHtR_c_class=1;
+
+ run;
+
+
+/* BMI Asthma score   */
+proc logistic data= tom.twb_match_data_finally2 ;   
+strata X_MatchID;   
+class   sex(ref="1") class_bmi(ref="2") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0")  dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1")    
+score_asthma_class(ref="0") score_Asthma_fix_class(ref="0") score_bmi_class(ref="0")/ param=ref;  
+model asthma_icdtwice (event='1')=   class_BMI  score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/*Asthma score Bmi score  */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_bmi(ref="2") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")   copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") score_asthma_class(ref="0") 
+score_Asthma_fix_class(ref="0") score_bmi_class(ref="0")/ param=ref; 
+model asthma_icdtwice (event='1')=   score_BMI_class  score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling  NP  copd Depression GERD Hypertension     ppm25    ;
+run;
+
+/* BMI, Asthma score, BMI score   */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_bmi(ref="2") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")  CS(ref="0")   copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") SMK_2ND(ref="1")     
+score_Asthma_fix_class(ref="0") score_bmi_class(ref="0") / param=ref;    
+model asthma_icdtwice (event='1')=  class_BMI   score_BMI_class   score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling  NP  copd Depression GERD Hypertension     ppm25 
+    ;
+run;
+
+
+/* WC Asthma score    */
+proc logistic data=tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_wc(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")   copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1")    
+score_asthma_class(ref="0") score_Asthma_fix_class(ref="0") score_wc_c_class(ref="0")/ param=ref;  
+model asthma_icdtwice (event='1')=   class_wc  score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/*Asthma score WC score */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_wc(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")   copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") score_asthma_class(ref="0") 
+score_Asthma_fix_class(ref="0") score_wc_c_class(ref="0")/ param=ref; 
+model asthma_icdtwice (event='1')=   score_wc_c_class   score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling  NP  copd Depression GERD Hypertension     ppm25    ;
+run;
+
+/* WC, Asthma score, WC score   */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") class_wc(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")  CS(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") SMK_2ND(ref="1")     
+score_Asthma_fix_class(ref="0") score_wc_c_class(ref="0") / param=ref;    
+model asthma_icdtwice (event='1')=  class_wc   score_wc_c_class   score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling  NP  copd Depression GERD Hypertension     ppm25 
+    ;
+run;
+
+
+
+
+/*WHtR Asthma score  */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") wc_hei_class(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1")    
+score_asthma_class(ref="0") score_Asthma_fix_class(ref="0") score_WHtR_c_class(ref="0")/ param=ref;  
+model asthma_icdtwice (event='1')=   wc_hei_class  score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling dep_parent MD_parent NP  copd Depression bd  OSA GERD Hypertension  diabetes   mets_class DRK_new    ppm25 
+/selection=STEPWISE fast slstay=0.1;
+run;
+
+/*Asthma score WHtR score */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") wc_hei_class(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")   copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") score_asthma_class(ref="0") 
+score_Asthma_fix_class(ref="0") score_WHtR_c_class(ref="0")/ param=ref; 
+model asthma_icdtwice (event='1')=   score_WHtR_c_class    score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling  NP  copd Depression GERD Hypertension     ppm25    ;
+run;
+
+/* WHtR, Asthma score, WHtR score   */
+proc logistic data= tom.twb_match_data_finally2;   
+strata X_MatchID;   
+class   sex(ref="1") wc_hei_class(ref="0") edu_group (ref="1") asthma_parent (ref="0") asthma_sibling(ref="0") dep_parent(ref="0") MD_parent(ref="0") 
+NP(ref="0")  CS(ref="0")    copd(ref="0")  Depression(ref="0")   bd(ref="0")  OSA(ref="0") GERD(ref="0")   Hypertension(ref="0")    diabetes(ref="0")   hyperlipidemia(ref="0") 
+ mets_class(ref="0") DRK_new(ref="0") smk_group(ref="1") SMK_2ND(ref="1")     
+score_Asthma_fix_class(ref="0") score_WHtR_c_class(ref="0") / param=ref;    
+model asthma_icdtwice (event='1')=  wc_hei_class   score_WHtR_c_class  score_Asthma_fix_class   edu_group  asthma_parent asthma_sibling  NP  copd Depression GERD Hypertension    ppm25 
+    ;
+run;
+
