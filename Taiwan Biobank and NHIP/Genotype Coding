@@ -1,0 +1,961 @@
+#Asthma SNP Analysis BMI WC WHtR 
+#針對Asthma SNP 進行分析
+##設定存取位置
+setwd("E:\\H107217_1\\tom_Asthma_All\\plink_sensentive (Asthma SNP)")
+SNP<-data.frame(read.table("SNP.raw",header = T))
+#保留Allele的情況
+SNP<-SNP[,-seq(8,70,by=2)]
+##排除SNP前面資訊(IID CHR…)
+SNP<-SNP[,-c(1:6)]
+##讀取DATA
+AA<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+##Keep Obesity 
+asthma_icdtwice<-AA[order(AA$iid),c("asthma_icdtwice","Bmi","BODY_WAISTLINE","wc_hei")]
+data<-cbind(asthma_icdtwice,SNP)
+##生成空的Additive Dominant Genotype Recessive 其BMI WC WHtR 的資訊
+snps_BMI_G<-data.frame();snps_BMI_A<-data.frame();snps_BMI_D<-data.frame();snps_BMI_R<-data.frame()
+snps_WC_G<-data.frame();snps_WC_A<-data.frame();snps_WC_D<-data.frame();snps_WC_R<-data.frame()
+snps_WHtR_G<-data.frame();snps_WHtR_A<-data.frame();snps_WHtR_D<-data.frame();snps_WHtR_R<-data.frame()
+
+##Calculate Asthma SNP 對 Obesity的影響
+for(i in 1:length(SNP)){
+  snp<-data.frame(BMI=data$Bmi,WC=data$ BODY_WAISTLINE,WHtR=data$wc_hei,snp=data[,4+i])
+  snp<-snp[!is.na(snp$snp),];snp$snp_D[snp$snp==1 | snp$snp==2]<-1;snp$snp_D[snp$snp==0]<-0
+  snp$snp_R[snp$snp==2 ]<-1;snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+  if(i==1){
+
+    snps_BMI_G<-data.frame(snp1=summary(lm(BMI~factor(snp),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp),data = snp))$coef[2,4],
+      				  snp2=summary(lm(BMI~factor(snp),data = snp))$coef[3,1],
+Pvalue2=summary(lm(BMI~factor(snp),data = snp))$coef[3,4] )
+    snps_BMI_A<-data.frame(snp1=summary(lm(BMI~snp,data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~snp,data = snp))$coef[2,4] )
+    snps_BMI_D<-data.frame(snp1=summary(lm(BMI~factor(snp_D),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp_D),data = snp))$coef[2,4])
+    snps_BMI_R<-data.frame(snp1=summary(lm(BMI~factor(snp_R),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp_R),data = snp))$coef[2,4])
+    snps_WC_G<-data.frame(snp1=summary(lm(WC~factor(snp),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp),data = snp))$coef[2,4],
+     				 snp2=summary(lm(WC~factor(snp),data = snp))$coef[3,1],
+Pvalue2=summary(lm(WC~factor(snp),data = snp))$coef[3,4] )
+
+    snps_WC_A<-data.frame(snp1=summary(lm(WC~snp,data = snp))$coef[2,1],  
+Pvalue1=summary(lm(WC~snp,data = snp))$coef[2,4] )
+    snps_WC_D<-data.frame(snp1=summary(lm(WC~factor(snp_D),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp_D),data = snp))$coef[2,4] )
+    snps_WC_R<-data.frame(snp1=summary(lm(WC~factor(snp_R),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp_R),data = snp))$coef[2,4])
+    snps_WHtR_G<-data.frame(snp1=summary(lm(WHtR~factor(snp),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~factor(snp),data = snp))$coef[2,4],
+     				    snp2=summary(lm(WHtR~factor(snp),data = snp))$coef[3,1],
+Pvalue2=summary(lm(WHtR~factor(snp),data = snp))$coef[3,4])
+    snps_WHtR_A<-data.frame(snp1=summary(lm(WHtR~snp,data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~snp,data = snp))$coef[2,4])
+    snps_WHtR_D<-data.frame(snp1=summary(lm(WHtR~factor(snp_D),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~factor(snp_D),data = snp))$coef[2,4] )
+    snps_WHtR_R<-data.frame(snp1=summary(lm(WHtR~factor(snp_R),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~factor(snp_R),data = snp))$coef[2,4])
+    }else{
+    snps_BMI_G<-rbind(snps_BMI_G,data.frame(snp1=summary(lm(BMI~factor(snp),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp),data = snp))$coef[2,4],
+                     		             snp2=summary(lm(BMI~factor(snp),data = snp))$coef[3,1],
+Pvalue2=summary(lm(BMI~factor(snp),data = snp))$coef[3,4]))
+    snps_BMI_A<-rbind(snps_BMI_A,data.frame(snp1=summary(lm(BMI~snp,data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~snp,data = snp))$coef[2,4]))
+    snps_BMI_D<-rbind(snps_BMI_D,data.frame(snp1=summary(lm(BMI~factor(snp_D),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp_D),data = snp))$coef[2,4]))
+    snps_BMI_R<-rbind(snps_BMI_R,data.frame(snp1=summary(lm(BMI~factor(snp_R),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp_R),data = snp))$coef[2,4]))
+
+    snps_WC_G<-rbind(snps_WC_G,data.frame(snp1=summary(lm(WC~factor(snp),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp),data = snp))$coef[2,4],
+    						       snp2=summary(lm(WC~factor(snp),data = snp))$coef[3,1],
+		                          Pvalue2=summary(lm(WC~factor(snp),data = snp))$coef[3,4]))
+    snps_WC_A<-rbind(snps_WC_A,data.frame(snp1=summary(lm(WC~snp,data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~snp,data = snp))$coef[2,4] ))
+    
+    snps_WC_D<-rbind(snps_WC_D,data.frame(snp1=summary(lm(WC~factor(snp_D),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp_D),data = snp))$coef[2,4]))
+    snps_WC_R<-rbind(snps_WC_R,data.frame(snp1=summary(lm(WC~factor(snp_R),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp_R),data = snp))$coef[2,4]))
+    
+snps_WHtR_G<-rbind(snps_WHtR_G,data.frame(snp1=summary(lm(WHtR~factor(snp),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~factor(snp),data = snp))$coef[2,4],
+snp2=summary(lm(WHtR~factor(snp),data = snp))$coef[3,1],
+Pvalue2=summary(lm(WHtR~factor(snp),data = snp))$coef[3,4]))
+    snps_WHtR_A<-rbind(snps_WHtR_A,data.frame(snp1=summary(lm(WHtR~snp,data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~snp,data = snp))$coef[2,4]))
+    snps_WHtR_D<-rbind(snps_WHtR_D,data.frame(snp1=summary(lm(WHtR~factor(snp_D),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~factor(snp_D),data = snp))$coef[2,4] ))
+    
+    snps_WHtR_R<-rbind(snps_WHtR_R,data.frame(snp1=summary(lm(WHtR~factor(snp_R),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~factor(snp_R),data = snp))$coef[2,4]))
+  }
+  row.names(snps_BMI_G)[i]<-names(data)[4+i];row.names(snps_BMI_A)[i]<-names(data)[4+i];row.names(snps_BMI_D)[i]<-names(data)[4+i];row.names(snps_BMI_R)[i]<-names(data)[4+i]
+  row.names(snps_WC_G)[i]<-names(data)[4+i];row.names(snps_WC_A)[i]<-names(data)[4+i];row.names(snps_WC_D)[i]<-names(data)[4+i];row.names(snps_WC_R)[i]<-names(data)[4+i]
+  row.names(snps_WHtR_G)[i]<-names(data)[4+i];row.names(snps_WHtR_A)[i]<-names(data)[4+i];row.names(snps_WHtR_D)[i]<-names(data)[4+i];row.names(snps_WHtR_R)[i]<-names(data)[4+i]
+}
+
+write.csv(snps_BMI_G,"snps_BMI_G.csv");write.csv(snps_BMI_A,"snps_BMI_A.csv");
+write.csv(snps_BMI_D,"snps_BMI_D.csv");write.csv(snps_BMI_R,"snps_BMI_R.csv")
+write.csv(snps_WC_G,"snps_WC_G.csv");write.csv(snps_WC_A,"snps_WC_A.csv");
+write.csv(snps_WC_D,"snps_WC_D.csv");write.csv(snps_WC_R,"snps_WC_R.csv")
+write.csv(snps_WHtR_G,"snps_WHtR_G.csv");write.csv(snps_WHtR_A,"snps_WHtR_A.csv");
+write.csv(snps_WHtR_D,"snps_WHtR_D.csv");write.csv(snps_WHtR_R,"snps_WHtR_R.csv")
+#P-value<0.05 SNP CI
+#P<0.05的信賴區間
+##生成DATA
+a<-data.frame(matrix(unlist(strsplit(names(SNP),split = "_")),ncol = 2,byrow = T))
+names(SNP)<-a$X1
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-AA[order(AA$iid),c("asthma_icdtwice","Bmi","BODY_WAISTLINE","wc_hei")]
+data<-cbind(asthma_icdtwice,SNP)
+
+## 個別生成不同的model CI 一個do loop 要做三次 (BMI WC WHtR)
+library(MASS)
+## Genotype BMI WC WHtR
+# BMI
+genotype<-c("rs9477622","rs9528692")
+# WHtR
+genotype<-c("rs288603","rs4688261")
+CI<-list()
+for(i in  1:length(genotype)){
+  #d<-data.frame(BMI=data$Bmi,snp=data[,which(names(data)==genotype[i])])
+  #d<-data.frame(WC=data$BODY_WAISTLINE,snp=data[,which(names(data)==genotype[i])])
+  d<-data.frame(WHtR=data$wc_hei,snp=data[,which(names(data)==genotype[i])])
+  #model<-lm(BMI~factor(snp),data = d);
+#model<-lm(WC~factor(snp),data = d)
+  model<-lm(WHtR~factor(snp),data = d)
+  CI[[i]]<-confint(model)
+}
+CI
+## Additive BMI WC WHtR
+# BMI
+Additive<-c('rs9318244')
+# WHtR
+Additive<-c('rs4688261')
+CI<-list()
+for(i in  1:length(Additive)){
+  d<-data.frame(BMI=data$Bmi,snp=data[,which(names(data)==Additive[i])])
+  d<-data.frame(WC= data$BODY_WAISTLINE,snp=data[,which(names(data)==Additive[i])])
+  d<-data.frame(WHtR=data$wc_hei,snp=data[,which(names(data)==Additive[i])])
+  model<-lm(BMI~snp,data = d)
+  model<-lm(WC~snp,data = d)
+  model<-lm(WHtR~snp,data = d)
+  CI[[i]]<-confint(model)
+}
+CI
+## Dominant BMI WC WHtR
+CI<-list()
+# BMI
+Dominant<-c("rs9477622")
+# WHtR
+Dominant<-c("rs9477622","rs4688261")
+for(i in  1:length(Dominant)){
+  d<-data.frame(BMI=data$Bmi,snp=data[,which(names(data)==Dominant[i])])
+  d<-data.frame(WC= data$BODY_WAISTLINE,snp=data[,which(names(data)==Dominant[i])])
+  d<-data.frame(WHtR=data$wc_hei,snp=data[,which(names(data)==Dominant[i])])
+  d$snp_D[d$snp==1 | d$snp==2]<-1
+  d$snp_D[d$snp==0]<-0
+  model<-lm(BMI~factor(snp_D),data = d)
+  model<-lm(WC~factor(snp_D),data = d)
+  model<-lm(WHtR~factor(snp_D),data = d)
+  CI[[i]]<-confint(model)
+}
+options(digits = 3)
+CI
+## Recessive BMI WC WHtR
+CI<-list()
+# BMI
+Recessive<-c("Affx.12675072","rs9528692","rs12148732")
+#WHtR
+Recessive<-c("rs4688261","rs397728","rs288603")
+for(i in 1:length(Recessive)){
+  #d<-data.frame(BMI=data$Bmi,snp=data[,which(names(data)==Recessive[i])])
+  #d<-data.frame(WC= data$BODY_WAISTLINE, snp=data[,which(names(data)==Recessive[i])])
+  d<-data.frame(WHtR=data$wc_hei,snp=data[,which(names(data)==Recessive[i])])
+  d$snp_R[d$snp==2 ]<-1
+  d$snp_R[d$snp==0 | d$snp==1 ]<-0
+  #model<-lm(BMI~factor(snp_R),data = d)
+  #model<-lm(WC~factor(snp_R),data = d)
+  model<-lm(WHtR~factor(snp_R),data = d)
+  CI[[i]]<-confint(model)
+}
+options(digits = 3)
+CI
+
+
+#Obesity SNP Analysis
+BMI
+##設定存取位置
+setwd("E:\\H107217_1\\tom_Asthma_All\\plink_sensentive (BMI SNP)")
+SNP<-data.frame(read.table("SNP.raw",header = T))
+#保留Allele的情況
+SNP<-SNP[,-seq(8,140,by=2)]
+##排除SNP前面資訊(IID CHR…)
+SNP<-SNP[,-c(1:6)]
+##讀取DATA
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+## Keep Asthma
+asthma_icdtwice<-data[order(data$iid),"asthma_icdtwice"]
+data<-cbind(asthma_icdtwice,SNP)
+##生成空的Additive Dominant Genotype Recessive 其Asthma 的資訊
+snp_NA<-NULL
+snps_Asthma_G<-data.frame();snps_Asthma_A<-data.frame();snps_Asthma_D<-data.frame();snps_Asthma_R<-data.frame()
+
+##Calculate Obesity SNP 對 Asthma的影響
+for(i in 1:(ncol(data)-1)){
+  snp_NA[i]<-sum(is.na(data[,1+i]))
+  snp<-data.frame(Asthma=data$asthma_icdtwice,snp=data[,1+i]); snp<-snp[!is.na(snp$snp),]
+  snp$snp_D[snp$snp==1 | snp$snp==2]<-1; snp$snp_D[snp$snp==0]<-0;
+  snp$snp_R[snp$snp==2 ]<-1; snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+  if(i==1){
+    #沒有2
+    if(length(levels(factor(snp$snp))) < 3){
+      snps_Asthma_G<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,1]),
+       					 Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,4],
+        					 snp2=NA,Pvalue2=NA)
+   }else{
+    snps_Asthma_G<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,1]),
+       					 Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,4],
+     				      snp2=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[3,1]),
+                              Pvalue2=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[3,4])
+    }
+    snps_Asthma_A<-data.frame(snp1=exp(summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,1]),
+                              Pvalue1=summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,4])
+    snps_Asthma_D<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_D),data = snp,family = binomial))$coef[2,1]),
+      					Pvalue1=summary(glm(factor(Asthma)~factor(snp_D),data = snp,family = binomial))$coef[2,4])
+    if(length(levels(factor(snp$snp_R))) < 2){
+    snps_Asthma_R<-data.frame(snp1=NA,Pvalue1=NA)
+   }else{
+    snps_Asthma_R<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_R),data = snp,family = binomial))$coef[2,1]),
+                            Pvalue1=summary(glm(factor(Asthma)~factor(snp_R),data = snp,family = binomial))$coef[2,4])}
+  }else{ if(length(levels(factor(snp$snp))) < 3 ){
+snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,4],
+       snp2=NA,Pvalue2=NA))
+    }else{
+      snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,4],
+        snp2=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[3,1]),
+        Pvalue2=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[3,4]
+      ))}
+  snps_Asthma_A<-rbind(snps_Asthma_A,
+ data.frame(snp1=exp(summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,1]),
+                               Pvalue1=summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,4]))
+  snps_Asthma_D<-rbind(snps_Asthma_D,
+                 data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_D),data = snp,
+family = binomial))$coef[2,1]),Pvalue1=summary(glm(factor(Asthma)~factor(snp_D),
+data = snp,family = binomial))$coef[2,4]))
+    if(length(levels(factor(snp$snp_R))) < 2  ){
+      snps_Asthma_R<-rbind(snps_Asthma_R, data.frame(snp1=NA,Pvalue1=NA))
+    }else{
+      snps_Asthma_R<-rbind(snps_Asthma_R,
+                           data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_R),data = snp,
+family = binomial))$coef[2,1]), Pvalue1=summary(glm(factor(Asthma)~factor(snp_R),
+data = snp,family = binomial))$coef[2,4]))}
+    }
+  row.names(snps_Asthma_G)[i]<-names(data)[1+i]
+  row.names(snps_Asthma_A)[i]<-names(data)[1+i]
+  row.names(snps_Asthma_D)[i]<-names(data)[1+i]
+  row.names(snps_Asthma_R)[i]<-names(data)[1+i]
+}
+write.csv(snps_Asthma_G,"snps_Asthma_G.csv");write.csv(snps_Asthma_A,"snps_Asthma_A.csv")
+write.csv(snps_Asthma_D,"snps_Asthma_D.csv");write.csv(snps_Asthma_R,"snps_Asthma_R.csv")
+
+WC/WHtR
+setwd("E:\\H107217_1\\tom_Asthma_All\\plink_sensentive (WC SNP)")
+SNP<-data.frame(read.table("SNP.raw",header = T))
+SNP<-SNP[,-seq(8,132,by=2)]
+SNP<-SNP[,-c(1:6)]
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-data[order(data$iid),"asthma_icdtwice"]
+data<-cbind(asthma_icdtwice,SNP)
+snp_NA<-NULL
+snps_Asthma_G<-data.frame();snps_Asthma_A<-data.frame();snps_Asthma_D<-data.frame();snps_Asthma_R<-data.frame()
+
+for(i in 1:(ncol(data)-1)){
+  snp_NA[i]<-sum(is.na(data[,1+i])); snp<-data.frame(Asthma=data$asthma_icdtwice,snp=data[,1+i])
+  snp<-snp[!is.na(snp$snp),]; snp$snp_D[snp$snp==1 | snp$snp==2]<-1; snp$snp_D[snp$snp==0]<-0
+  snp$snp_R[snp$snp==2 ]<-1; snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+  if(i==1){
+    #沒有2
+    if(length(levels(factor(snp$snp))) < 3){
+      snps_Asthma_G<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,1]),
+        					 Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,4],
+       					 snp2=NA,Pvalue2=NA )
+    }else{
+      snps_Asthma_G<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,1]),
+       					 Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[2,4],
+       					 snp2=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[3,1]),
+        					 Pvalue2=summary(glm(factor(Asthma)~factor(snp),data = snp,family = binomial))$coef[3,4])
+    }
+    snps_Asthma_A<-data.frame(snp1=exp(summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,1]),
+                              Pvalue1=summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,4])
+    snps_Asthma_D<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_D),data = snp,family = binomial))$coef[2,1]),
+     				    Pvalue1=summary(glm(factor(Asthma)~factor(snp_D),data = snp,family = binomial))$coef[2,4])
+    if(length(levels(factor(snp$snp_R))) < 2){
+      snps_Asthma_R<-data.frame(snp1=NA,Pvalue1=NA)
+    }else{
+      snps_Asthma_R<-data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_R),data = snp,
+family = binomial))$coef[2,1]),Pvalue1=summary(glm(factor(Asthma)~factor(snp_R),
+data = snp,family = binomial))$coef[2,4])
+    }
+  }else{
+    if(length(levels(factor(snp$snp))) < 3 ){
+      snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,
+family = binomial))$coef[2,1]), Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,
+family = binomial))$coef[2,4], snp2=NA, Pvalue2=NA ))
+    }else{
+      snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,
+family = binomial))$coef[2,1]), Pvalue1=summary(glm(factor(Asthma)~factor(snp),data = snp,
+family = binomial))$coef[2,4],
+        									snp2=exp(summary(glm(factor(Asthma)~factor(snp),data = snp,
+family = binomial))$coef[3,1]),
+       									Pvalue2=summary(glm(factor(Asthma)~factor(snp),data = snp,
+family = binomial))$coef[3,4]))
+}
+    snps_Asthma_A<-rbind(snps_Asthma_A,
+                         data.frame(snp1=exp(summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,1]),
+                                    Pvalue1=summary(glm(factor(Asthma)~snp,data = snp,family = binomial))$coef[2,4]))
+    snps_Asthma_D<-rbind(snps_Asthma_D,
+                         data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_D),data = snp,
+family = binomial))$coef[2,1]),
+                                  Pvalue1=summary(glm(factor(Asthma)~factor(snp_D),data = snp,
+family = binomial))$coef[2,4]))    
+    if(length(levels(factor(snp$snp_R))) < 2  ){
+      snps_Asthma_R<-rbind(snps_Asthma_R, data.frame(snp1=NA, Pvalue1=NA))
+    }else{
+      snps_Asthma_R<-rbind(snps_Asthma_R,data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_R),data = snp,
+family = binomial))$coef[2,1]),
+Pvalue1=summary(glm(factor(Asthma)~factor(snp_R),data = snp,
+family = binomial))$coef[2,4]))
+    }
+  }
+  row.names(snps_Asthma_G)[i]<-names(data)[1+i]; row.names(snps_Asthma_A)[i]<-names(data)[1+i]
+  row.names(snps_Asthma_D)[i]<-names(data)[1+i]; row.names(snps_Asthma_R)[i]<-names(data)[1+i]
+}
+write.csv(snps_Asthma_G,"snps_Asthma_G.csv");write.csv(snps_Asthma_A,"snps_Asthma_A.csv")
+write.csv(snps_Asthma_D,"snps_Asthma_D.csv");write.csv(snps_Asthma_R,"snps_Asthma_R.csv")
+
+
+P-value<0.05 SNP CI
+P<0.05的信賴區間
+##生成DATA (BMI)
+check<-SNP[,which(names(SNP)=="rs4776990_C")]
+data<-data.frame(cbind(asthma_icdtwice,check))
+exp(summary(glm(factor(asthma_icdtwice)~check,data = data,family = binomial))$coef[2,1])
+summary(glm(factor(asthma_icdtwice)~check,data = data,family = binomial))$coef[2,4]
+a<-data.frame(matrix(unlist(strsplit(names(SNP),split = "_")),ncol = 2,byrow = T))
+names(SNP)<-a$X1
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-data[order(data$iid),"asthma_icdtwice"]
+data<-cbind(asthma_icdtwice,SNP)
+# Genotype Additive Dominant Recessive for BMI
+library(MASS)
+genotype<-c("rs2142301","rs6769329","rs972610","rs11786077","rs1857079","rs79080691")
+CI<-list()
+for(i in  1:length(genotype)){
+  d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==genotype[i])])
+  model<-glm(factor(Asthma)~factor(snp),data = d,family = binomial)
+  CI[[i]]<-confint(model)
+}
+CI
+Additive<-c('rs2142301','rs6769329','rs7662547','rs4776990')
+CI<-list()
+for(i in 1:length(Additive)){
+  d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==Additive[i])])
+  model<-glm(factor(Asthma)~snp,data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+CI
+
+CI<-list()
+Dominant<-c("rs6769329","rs972610","rs11786077","rs79080691")
+for(i in  1:length(Dominant)){
+  d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==Dominant[i])])
+  d<-d[!is.na(d$snp),]
+  d$snp_D[d$snp==1 | d$snp==2]<-1
+  d$snp_D[d$snp==0]<-0
+  model<-glm(factor(Asthma)~factor(snp_D),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+CI
+
+CI<-list()
+Recessive<-c("rs2142301","rs1857079","rs4879990")
+  for(i in 1:length(Recessive)){
+    d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==Recessive[i])])
+    d<-d[!is.na(d$snp),]
+    d$snp_R[d$snp==2 ]<-1
+    d$snp_R[d$snp==0 | d$snp==1 ]<-0
+    model<-glm(factor(Asthma)~factor(snp_R),data = d,family = binomial)
+    CI[[i]]<-exp(confint(model))
+  }
+CI
+
+##生成DATA (WC)
+a<-data.frame(matrix(unlist(strsplit(names(SNP),split = "_")),ncol = 2,byrow = T))
+names(SNP)<-a$X1
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-data[order(data$iid),"asthma_icdtwice"]
+data<-cbind(asthma_icdtwice,SNP)
+
+# Genotype Additive Dominant Recessive for WC/WHtR
+library(MASS)
+genotype<-c("rs12809635","rs2142301","rs11003136","rs2914674","rs7206790","rs3787432","rs78032962")
+CI<-list()
+for(i in 1:length(genotype)){
+  d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==genotype[i])])
+  model<-glm(factor(Asthma)~factor(snp),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
+
+Additive<-c("rs2142301","rs7662547","rs2914674","rs78563649","rs11003136","rs4776990")
+
+CI<-list()
+for(i in  1:length(Additive)){
+  d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==Additive[i])])
+  model<-glm(factor(Asthma)~snp,data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+CI
+
+CI<-list()
+Dominant<-c("rs2914674","rs78563649","rs3787432")
+for(i in  1:length(Dominant)){
+  d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==Dominant[i])])
+  d<-d[!is.na(d$snp),]
+  d$snp_D[d$snp==1 | d$snp==2]<-1
+  d$snp_D[d$snp==0]<-0
+  model<-glm(factor(Asthma)~factor(snp_D),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+CI
+
+CI<-list()
+Recessive<-c("rs2142301","rs78032962","rs11003136","rs7206790")
+for(i in 1:length(Recessive)){
+  d<-data.frame(Asthma=data[,1],snp=data[,which(names(data)==Recessive[i])])
+  d<-d[!is.na(d$snp),]
+  d$snp_R[d$snp==2 ]<-1
+  d$snp_R[d$snp==0 | d$snp==1 ]<-0
+  model<-glm(factor(Asthma)~factor(snp_R),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+CI
+
+PLINK Additive Dominant Genotype Recessive Multivariate model
+調整年齡 性別 教育程度的結果
+Asthma SNP Analysis BMI WC WHtR adjusted for covar variable
+setwd("E:\\H107217_1\\tom_Asthma_All\\plink_sensentive (Asthma SNP)")
+SNP<-data.frame(read.table("SNP.raw",header = T))
+SNP<-SNP[,-seq(8,70,by=2)]
+SNP<-SNP[,-c(1:6)]
+AA<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-AA[order(AA$iid),c("asthma_icdtwice","Bmi","BODY_WAISTLINE","wc_hei","twbage","edu_group","SEX")]
+data<-cbind(asthma_icdtwice,SNP)
+snps_BMI_G<-data.frame();snps_BMI_A<-data.frame();snps_BMI_D<-data.frame();snps_BMI_R<-data.frame()
+snps_WC_G<-data.frame();snps_WC_A<-data.frame();snps_WC_D<-data.frame();snps_WC_R<-data.frame()
+snps_WHtR_G<-data.frame();snps_WHtR_A<-data.frame();snps_WHtR_D<-data.frame();snps_WHtR_R<-data.frame()
+for(i in 1:length(SNP)){
+  snp<-data.frame(BMI=data$Bmi,WC=data$BODY_WAISTLINE,WHtR=data$wc_hei,Age=data$twbage,
+edu_group=data$edu_group,SEX=data$SEX,snp=data[,7+i])
+  snp$snp_D[snp$snp==1 | snp$snp==2]<-1;snp$snp_D[snp$snp==0]<-0
+  snp$snp_R[snp$snp==2 ]<-1;snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+  if(i==1){
+    snps_BMI_G<-data.frame(snp1=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4],
+      				  snp2=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[3,1],
+Pvalue2=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+factor(SEX),data =snp))$coef[3,4])
+    snps_BMI_A<-data.frame(snp1=summary(lm(BMI~snp+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~snp+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4])
+    snps_BMI_D<-data.frame(snp1=summary(lm(BMI~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4])
+    snps_BMI_R<-data.frame(snp1=summary(lm(BMI~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(BMI~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4])
+    snps_WC_G<-data.frame(snp1=summary(lm(WC~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4],
+      				snp2=summary(lm(WC~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[3,1],
+Pvalue2=summary(lm(WC~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[3,4])
+    snps_WC_A<-data.frame(snp1=summary(lm(WC~snp+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~snp+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4])
+    snps_WC_D<-data.frame(snp1=summary(lm(WC~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4])
+    
+    snps_WC_R<-data.frame(snp1=summary(lm(WC~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WC~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4])
+    snps_WHtR_G<-data.frame(snp1=summary(lm(WHtR~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4],     snp2=summary(lm(WHtR~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[3,1],
+Pvalue2=summary(lm(WHtR~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[3,4])
+    snps_WHtR_A<-data.frame(snp1=summary(lm(WHtR~snp+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,1],
+Pvalue1=summary(lm(WHtR~snp+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4])
+    snps_WHtR_D<-data.frame(snp1=summary(lm(WHtR~factor(snp_D)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WHtR~factor(snp_D)+Age+factor(edu_group)
++factor(SEX),data = snp))$coef[2,4])
+snps_WHtR_R<-data.frame(snp1=summary(lm(WHtR~factor(snp_R)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WHtR~factor(snp_R)+Age+factor(edu_group)+
+factor(SEX),data = snp))$coef[2,4])
+   }else{
+    snps_BMI_G<-rbind(snps_BMI_G,data.frame(snp1=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+
+factor(SEX),data = snp))$coef[2,4], snp2=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+
+factor(SEX),data = snp))$coef[3,1],Pvalue2=summary(lm(BMI~factor(snp)+Age+factor(edu_group)+
+factor(SEX),data = snp))$coef[3,4]))
+snps_BMI_A<-rbind(snps_BMI_A,data.frame(snp1=summary(lm(BMI~snp+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(BMI~snp+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+     snps_BMI_D<-rbind(snps_BMI_D,data.frame(snp1=summary(lm(BMI~factor(snp_D)+Age+factor(edu_group)+
+factor(SEX),data = snp))$coef[2,1],Pvalue1=summary(lm(BMI~factor(snp_D)+
+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+     snps_BMI_R<-rbind(snps_BMI_R,data.frame(snp1=summary(lm(BMI~factor(snp_R)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(BMI~factor(snp_R)+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+    snps_WC_G<-rbind(snps_WC_G,data.frame(snp1=summary(lm(WC~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WC~factor(snp)+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[2,4],
+      								snp2=summary(lm(WC~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[3,1],Pvalue2=summary(lm(WC~factor(snp)+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[3,4]))
+    snps_WC_A<-rbind(snps_WC_A,data.frame(snp1=summary(lm(WC~snp+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WC~snp+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+    
+    snps_WC_D<-rbind(snps_WC_D,data.frame(snp1=summary(lm(WC~factor(snp_D)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WC~factor(snp_D)+
+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+    snps_WC_R<-rbind(snps_WC_R,data.frame(snp1=summary(lm(WC~factor(snp_R)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WC~factor(snp_R)+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+    snps_WHtR_G<-rbind(snps_WHtR_G,data.frame(snp1=summary(lm(WHtR~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WHtR~factor(snp)+
+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4],
+snp2=summary(lm(WHtR~factor(snp)+Age+factor(edu_group)+
+factor(SEX),data = snp))$coef[3,1],Pvalue2=summary(lm(WHtR~
+factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[3,4]))
+    snps_WHtR_A<-rbind(snps_WHtR_A,data.frame(snp1=summary(lm(WHtR~snp+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WHtR~snp+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+        snps_WHtR_D<-rbind(snps_WHtR_D,data.frame(snp1=summary(lm(WHtR~factor(snp_D)+Age+factor(edu_group)+factor(SEX),
+data = snp))$coef[2,1],Pvalue1=summary(lm(WHtR~factor(snp_D)+Age+
+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+    
+    snps_WHtR_R<-rbind(snps_WHtR_R,data.frame(snp1=summary(lm(WHtR~factor(snp_R)+Age+factor(edu_group)
++factor(SEX),data = snp))$coef[2,1],Pvalue1=summary(lm(WHtR~
+factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = snp))$coef[2,4]))
+  }
+row.names(snps_BMI_G)[i]<-names(data)[7+i];row.names(snps_BMI_A)[i]<-names(data)[7+i];row.names(snps_BMI_D)[i]<-names(data)[7+i];row.names(snps_BMI_R)[i]<-names(data)[7+i]
+row.names(snps_WC_G)[i]<-names(data)[7+i];row.names(snps_WC_A)[i]<-names(data)[7+i];row.names(snps_WC_D)[i]<-names(data)[7+i];row.names(snps_WC_R)[i]<-names(data)[7+i]
+row.names(snps_WHtR_G)[i]<-names(data)[7+i];row.names(snps_WHtR_A)[i]<-names(data)[7+i];row.names(snps_WHtR_D)[i]<-names(data)[7+i];row.names(snps_WHtR_R)[i]<-names(data)[7+i]
+  
+}
+setwd("F:\\H107217\\Tom\\20210308\\")
+write.csv(snps_BMI_G,"snps_BMI_G_mult.csv");write.csv(snps_BMI_A,"snps_BMI_A_mult.csv");write.csv(snps_BMI_D,"snps_BMI_D_mult.csv");write.csv(snps_BMI_R,"snps_BMI_R_mult.csv")
+write.csv(snps_WC_G,"snps_WC_G_mult.csv");write.csv(snps_WC_A,"snps_WC_A_mult.csv");write.csv(snps_WC_D,"snps_WC_D_mult.csv");write.csv(snps_WC_R,"snps_WC_R_mult.csv")
+write.csv(snps_WHtR_G,"snps_WHtR_G_mult.csv");write.csv(snps_WHtR_A,"snps_WHtR_A_mult.csv");write.csv(snps_WHtR_D,"snps_WHtR_D_mult.csv");write.csv(snps_WHtR_R,"snps_WHtR_R_mult.csv")
+
+
+P-value<0.05 SNP CI
+P<0.05的信賴區間
+library(MASS)
+a<-data.frame(matrix(unlist(strsplit(names(SNP),split = "_")),ncol = 2,byrow = T))
+names(SNP)<-a$X1
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-AA[order(AA$iid),c("asthma_icdtwice","Bmi","BODY_WAISTLINE","wc_hei","twbage","edu_group","SEX")]
+data<-cbind(asthma_icdtwice,SNP)
+
+genotype<-c("rs3821762","rs9477622","rs9528692")
+genotype<-c("rs4688261","rs288603")
+genotype<-c("rs4688261","rs9477622")
+
+CI<-list()
+for(i in  1:length(genotype)){
+  #d<-data.frame(BMI=data$Bmi,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==genotype[i])])
+  #d<-data.frame(WC=data$BODY_WAISTLINE,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==genotype[i])])
+  d<-data.frame(WHtR=data$wc_hei,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==genotype[i])])
+  #model<-lm(BMI~factor(snp)+Age+factor(edu_group)+factor(SEX),data = d)
+  #model<-lm(WC~factor(snp)+Age+factor(edu_group)+factor(SEX),data = d)
+  model<-lm(WHtR~factor(snp)+Age+factor(edu_group)+factor(SEX),data = d)
+  CI[[i]]<-confint(model)
+}
+options(digits = 3)
+CI
+#BMI無
+Additive<-c('rs437587','rs4688261')
+Additive<-c('rs4688261')
+CI<-list()
+for(i in  1:length(Additive)){
+  #d<-data.frame(BMI=data$Bmi,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Additive[i])])
+  #d<-data.frame(WC=data$BODY_WAISTLINE,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Additive[i])])
+  d<-data.frame(WHtR=data$wc_hei,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Additive[i])])
+  #model<-lm(BMI~snp+Age+factor(edu_group)+factor(SEX),data = d)
+  #model<-lm(WC~snp+Age+factor(edu_group)+factor(SEX),data = d)
+  model<-lm(WHtR~snp+Age+factor(edu_group)+factor(SEX),data = d)
+  CI[[i]]<-confint(model)
+}
+options(digits = 3)
+CI
+CI<-list()
+Dominant<-c("rs9477622")
+Dominant<-c("rs437587")
+for(i in 1:length(Dominant)){
+  #d<-data.frame(BMI=data$Bmi,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Dominant[i])])
+  d<-data.frame(WC=data$BODY_WAISTLINE,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Dominant[i])])
+  #d<-data.frame(WHtR=data$wc_hei,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Dominant[i])])
+  d$snp_D[d$snp==1 | d$snp==2]<-1;  d$snp_D[d$snp==0]<-0
+  #model<-lm(BMI~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = d)
+  model<-lm(WC~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = d)
+  #model<-lm(WHtR~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = d)
+  CI[[i]]<-confint(model)
+}
+options(digits = 3)
+CI
+
+Recessive<-c("Affx.12675072","rs9528692","rs12148732")
+Recessive<-c("Affx.12675072","rs4688261")
+
+CI<-list()
+
+for(i in 1:length(Recessive)){
+  #d<-data.frame(BMI=data$Bmi,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Recessive[i])])
+  #d<-data.frame(WC=data$BODY_WAISTLINE,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Recessive[i])])
+  d<-data.frame(WHtR=data$wc_hei,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Recessive[i])])
+  d$snp_R[d$snp==2 ]<-1; d$snp_R[d$snp==0 | d$snp==1 ]<-0
+  #model<-lm(BMI~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = d)
+  #model<-lm(WC~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = d)
+  model<-lm(WHtR~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = d)
+  CI[[i]]<-confint(model)
+}
+options(digits = 3)
+CI
+
+#Obesity SNP Analysis adjusted for covar variable
+#BMI
+setwd("E:\\H107217_1\\tom_Asthma_All\\plink_sensentive (BMI SNP)")
+SNP<-data.frame(read.table("SNP.raw",header = T))
+SNP<-SNP[,-seq(8,140,by=2)]
+SNP<-SNP[,-c(1:6)]
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+
+asthma_icdtwice<-data[order(data$iid),c("asthma_icdtwice","twbage","edu_group","SEX")]
+data<-cbind(asthma_icdtwice,SNP)
+snps_Asthma_G<-data.frame();snps_Asthma_A<-data.frame()
+snps_Asthma_D<-data.frame();snps_Asthma_R<-data.frame()
+for(i in 1:(ncol(data)-4)){
+  snp<-data.frame(Asthma=data$asthma_icdtwice,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,snp=data[,4+i])
+  snp$snp_D[snp$snp==1 | snp$snp==2]<-1; snp$snp_D[snp$snp==0]<-0; 
+snp$snp_R[snp$snp==2 ]<-1;snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+  if(i==1){
+    #沒有2
+    if(length(levels(factor(snp$snp))) < 3){
+      snps_Asthma_G<-data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4],snp2=NA,Pvalue2=NA )
+    }else{
+      snps_Asthma_G<-data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4],
+        snp2=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[3,1]),
+        Pvalue2=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[3,4])
+    }
+    snps_Asthma_A<-data.frame(snp1=exp(summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+               Pvalue1=summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4])
+   snps_Asthma_D<-data.frame(
+      snp1=exp(summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+      Pvalue1=summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4])
+    if(length(levels(factor(snp$snp_R))) < 2){
+ snps_Asthma_R<-data.frame(snp1=NA, Pvalue1=NA)
+    }else{
+      snps_Asthma_R<-data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4])
+    }
+  }else{
+    if(length(levels(factor(snp$snp))) < 3  ){
+      snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4], snp2=NA, Pvalue2=NA))
+    }else{
+      snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4],
+        snp2=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[3,1]),
+        Pvalue2=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[3,4]))}
+       snps_Asthma_A<-rbind(snps_Asthma_A,
+                         data.frame(snp1=exp(summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+                           		 Pvalue1=summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4]))
+snps_Asthma_D<-rbind(snps_Asthma_D,                         
+data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+
+factor(SEX),data = snp,family = binomial))$coef[2,1]),Pvalue1=summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4]))
+    if(length(levels(factor(snp$snp_R))) < 2  ){
+ snps_Asthma_R<-rbind(snps_Asthma_R,data.frame(snp1=NA,Pvalue1=NA))
+    }else{
+      snps_Asthma_R<-rbind(snps_Asthma_R,                           
+data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_R)+Age+
+factor(edu_group)+factor(SEX),data = snp,family = binomial))$coef[2,1]),Pvalue1=summary(glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+
+factor(SEX),data = snp,family = binomial))$coef[2,4]))   }
+    }
+  row.names(snps_Asthma_G)[i]<-names(data)[4+i]
+  row.names(snps_Asthma_A)[i]<-names(data)[4+i]
+  row.names(snps_Asthma_D)[i]<-names(data)[4+i]
+  row.names(snps_Asthma_R)[i]<-names(data)[4+i]
+}
+setwd("F:\\H107217\\Tom\\20210308\\")
+write.csv(snps_Asthma_G,"snps_Asthma_G_mult.csv")
+write.csv(snps_Asthma_A,"snps_Asthma_A_mult.csv")
+write.csv(snps_Asthma_D,"snps_Asthma_D_mult.csv")
+write.csv(snps_Asthma_R,"snps_Asthma_R_mult.csv")
+WC/WHtR
+setwd("E:\\H107217_1\\tom_Asthma_All\\plink_sensentive (WC SNP)")
+
+SNP<-data.frame(read.table("SNP.raw",header = T))
+SNP<-SNP[,-seq(8,132,by=2)]
+SNP<-SNP[,-c(1:6)]
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-data[order(data$iid),c("asthma_icdtwice","twbage","edu_group","SEX")]
+data<-cbind(asthma_icdtwice,SNP)
+
+snps_Asthma_G<-data.frame();snps_Asthma_A<-data.frame()
+snps_Asthma_D<-data.frame();snps_Asthma_R<-data.frame()
+
+for(i in 1:(ncol(data)-4)){
+  snp<-data.frame(Asthma=data$asthma_icdtwice,Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,snp=data[,4+i])
+  snp$snp_D[snp$snp==1 | snp$snp==2]<-1; snp$snp_D[snp$snp==0]<-0
+  snp$snp_R[snp$snp==2 ]<-1; snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+  options(digits = 2)
+  if(i==1){
+    #沒有2
+    if(length(levels(factor(snp$snp))) < 3){
+      snps_Asthma_G<-data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,4], snp2=NA,Pvalue2=NA)
+    }else{
+      snps_Asthma_G<-data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,1]), 
+Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,4],
+        snp2=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[3,1]),
+        Pvalue2=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[3,4])
+    }
+    snps_Asthma_A<-data.frame(snp1=exp(summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+                              Pvalue1=summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4])
+    snps_Asthma_D<-data.frame(
+      snp1=exp(summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,1]),
+      Pvalue1=summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,4])
+    if(length(levels(factor(snp$snp_R))) < 2){
+      snps_Asthma_R<-data.frame(snp1=NA, Pvalue1=NA)
+    }else{
+      snps_Asthma_R<-data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,4])
+    }
+  }else{
+    if(length(levels(factor(snp$snp))) < 3){
+      snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,4], snp2=NA, Pvalue2=NA))
+    }else{
+      snps_Asthma_G<-rbind(snps_Asthma_G,data.frame(
+        snp1=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,1]),
+        Pvalue1=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[2,4],
+        snp2=exp(summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[3,1]),
+        Pvalue2=summary(glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = snp,
+family = binomial))$coef[3,4]))
+}
+ snps_Asthma_A<-rbind(snps_Asthma_A,
+                         data.frame(snp1=exp(summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,1]),
+                                  Pvalue1=summary(glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4]))
+ snps_Asthma_D<-rbind(snps_Asthma_D, 
+data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+
+factor(SEX),data = snp,family = binomial))$coef[2,1]),                                    
+Pvalue1=summary(glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),
+data = snp,family = binomial))$coef[2,4]))
+ if(length(levels(factor(snp$snp_R))) < 2  ){
+      snps_Asthma_R<-rbind(snps_Asthma_R, data.frame(snp1=NA, Pvalue1=NA))
+    }else{
+ snps_Asthma_R<-rbind(snps_Asthma_R,                           
+data.frame(snp1=exp(summary(glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+
+factor(SEX),data = snp,family = binomial))$coef[2,1]),                                      
+Pvalue1=summary(glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+
+factor(SEX),data = snp,family = binomial))$coef[2,4]))
+    }
+  }
+  row.names(snps_Asthma_G)[i]<-names(data)[4+i]
+  row.names(snps_Asthma_A)[i]<-names(data)[4+i]
+  row.names(snps_Asthma_D)[i]<-names(data)[4+i]
+  row.names(snps_Asthma_R)[i]<-names(data)[4+i]
+}
+
+setwd("F:\\H107217\\Tom\\20210308\\")
+write.csv(snps_Asthma_G,"snps_Asthma_G_mult.csv")
+write.csv(snps_Asthma_A,"snps_Asthma_A_mult.csv")
+write.csv(snps_Asthma_D,"snps_Asthma_D_mult.csv")
+write.csv(snps_Asthma_R,"snps_Asthma_R_mult.csv")
+P-value<0.05 SNP CI
+P<0.05的信賴區間
+##生成DATA (BMI)
+a<-data.frame(matrix(unlist(strsplit(names(SNP),split = "_")),ncol = 2,byrow = T))
+names(SNP)<-a$X1
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-data[order(data$iid),c("asthma_icdtwice","twbage","edu_group","SEX")]
+data<-cbind(asthma_icdtwice,SNP)
+
+library(MASS)
+
+genotype<-c("rs11786077","rs2142301","rs6769329","rs1857079")
+CI<-list()
+for(i in  1:length(genotype)){
+  d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==genotype[i])])
+  model<-glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
+
+Additive<-c('rs2142301','rs6769329')
+CI<-list()
+for(i in  1:length(Additive)){
+  d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Additive[i])])
+  model<-glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
+
+Dominant<-c("rs972610","rs11786077")
+CI<-list()
+for(i in  1:length(Dominant)){
+  d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Dominant[i])])
+  d$snp_D[d$snp==1 | d$snp==2]<-1
+  d$snp_D[d$snp==0]<-0
+  model<-glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
+
+Recessive<-c("rs2142301","rs1857079","rs4879990")
+CI<-list()
+  for(i in  1:length(Recessive)){
+    d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Recessive[i])])
+    d$snp_R[d$snp==2 ]<-1
+    d$snp_R[d$snp==0 | d$snp==1 ]<-0
+    model<-glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+    CI[[i]]<-exp(confint(model))
+  }
+options(digits = 3)
+CI
+##生成DATA (WC)
+a<-data.frame(matrix(unlist(strsplit(names(SNP),split = "_")),ncol = 2,byrow = T))
+names(SNP)<-a$X1
+data<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_All\\match_data_new2.csv"))
+asthma_icdtwice<-data[order(data$iid),c("asthma_icdtwice","twbage","edu_group","SEX")]
+data<-cbind(asthma_icdtwice,SNP)
+
+library(MASS)
+genotype<-c("rs3787432","rs2142301","rs2914674","rs78032962","rs11003136","rs12809635","rs7206790")
+CI<-list()
+for(i in  1:length(genotype)){
+  d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==genotype[i])])
+  model<-glm(factor(Asthma)~factor(snp)+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
+
+Additive<-c("rs2142301","rs2914674","rs78563649","rs11003136")
+CI<-list()
+for(i in  1:length(Additive)){
+  d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Additive[i])])
+  model<-glm(factor(Asthma)~snp+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
+
+Dominant<-c("rs2914674","rs3787432")
+CI<-list()
+for(i in  1:length(Dominant)){
+  d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Dominant[i])])
+  d$snp_D[d$snp==1 | d$snp==2]<-1
+  d$snp_D[d$snp==0]<-0
+  model<-glm(factor(Asthma)~factor(snp_D)+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
+
+Recessive<-c("rs2142301","rs78032962","rs7206790")
+CI<-list()
+for(i in  1:length(Recessive)){
+  d<-data.frame(Asthma=data[,1],Age=data$twbage,edu_group=data$edu_group,SEX=data$SEX,
+snp=data[,which(names(data)==Recessive[i])])
+  d$snp_R[d$snp==2 ]<-1
+  d$snp_R[d$snp==0 | d$snp==1 ]<-0
+  model<-glm(factor(Asthma)~factor(snp_R)+Age+factor(edu_group)+factor(SEX),data = d,family = binomial)
+  CI[[i]]<-exp(confint(model))
+}
+options(digits = 3)
+CI
