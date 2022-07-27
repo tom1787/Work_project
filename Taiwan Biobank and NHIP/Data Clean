@@ -1,0 +1,896 @@
+將TWB資料進行清理
+libname id "E:\H107217_1\tom_TWBdata\TWB_ID”
+libname qc "E:\H107217_1\tom_TWBdata\TWB_QC";
+libname twb "E:\H107217_1\tom_TWBdata\TWB_Data”
+libname fat "E:\H107217_1\tom_TWBdata\TWB_fat";
+libname data "F:\H107217\data";
+
+
+/*對ID,QC對應的 Release_NO 做排序*/
+proc sort data=id.Twbr10704_05ss;
+by Release_No; run;
+proc sort data=qc.qc;
+by Release_No; run;
+/*將QC的人選出 n=21043*/
+data qc.qc_people;
+merge  qc.qc(in=a)  id.Twbr10704_05ss (in=b);
+by Release_No;
+if a;
+keep Release_No IID ID ID_S ID_ROC ;
+run;
+/*健康問卷、調查問卷、體檢與檢驗資訊排序*/
+proc sort data=twb.survey;
+ by Release_No;
+run;
+proc sort data=twb.health;
+ by Release_No;
+run;
+proc sort data= twb.fat;
+ by Release_No;	
+run;
+/*健康問卷、調查問卷 合併  n=24000*/
+data a;
+merge twb.survey (in=a)  twb.health(in=b);
+by Release_No;
+if a=b;
+run;
+
+健康問卷及調查問卷 與 體檢與檢驗 合併
+data twb.TWB_mergedata;
+merge a (in=a) twb.fat(in=b);
+by Release_No;
+if a=b;
+keep  Release_No SURVEY_DATE BIRTH_DATE AGE SEX EDUCATION PLACE_CURR DRK SMK_EXPERIENCE SMK_CURR SMK_2ND SPO_HABIT SPO_HABIT_A SPO_HABIT_A_FREQ SPO_HABIT_A_HRS SPO_HABIT_A_MINS SPO_HABIT_B SPO_HABIT_B_FREQ SPO_HABIT_B_HRS SPO_HABIT_B_MINS SPO_HABIT_C SPO_HABIT_C_FREQ SPO_HABIT_C_HRS SPO_HABIT_C_MINS SLEEP_QUALITY 
+ASTHMA_SELF ASTHMA_SELF_YEAR ASTHMA_SELF_MONTH ASTHMA_FA ASTHMA_MOM ASTHMA_BRO ASTHMA_SIS EMPHYSEMA_OR_BRONCHITIS_SELF HYPERTENSION_SELF DIABETES_SELF GERD_SELF PSYCHOSIS DEPRESSION_SELF DEPRESSION_FA DEPRESSION_MOM DEPRESSION_BRO DEPRESSION_SIS MANIC_DEPRESSION_SELF MANIC_DEPRESSION_FA MANIC_DEPRESSION_MOM MANIC_DEPRESSION_BRO MANIC_DEPRESSION_SIS OCD_SELF OCD_FA OCD_MOM OCD_BRO OCD_SIS SCHIZOPHRENIA_SELF SCHIZOPHRENIA_FA SCHIZOPHRENIA_MOM SCHIZOPHRENIA_BRO SCHIZOPHRENIA_SIS
+BODY_HEIGHT BODY_WEIGHT BODY_FAT_RATE BODY_WAISTLINE BODY_BUTTOCKS SIT_1_SYSTOLIC_PRESSURE SIT_1_DIASTOLIC_PRESSURE SIT_2_SYSTOLIC_PRESSURE SIT_2_DIASTOLIC_PRESSURE SIT_3_SYSTOLIC_PRESSURE SIT_3_DIASTOLIC_PRESSURE FEV10_FVC FASTING_GLUCOSE TG HDL_C MMF MMF_PRED PEF PEF_PRED; 
+run;
+
+排除外島參與者 n=23892
+data aa;
+set Twb.TWB_mergedata;
+if PLACE_CURR = "4401" or PLACE_CURR ="4402" or PLACE_CURR ="4403" 
+or PLACE_CURR ="4404" or PLACE_CURR ="4405" or PLACE_CURR = 
+"4406"  then delete;/*澎湖*/
+if PLACE_CURR = "9001" or PLACE_CURR ="9002" or PLACE_CURR ="9003" 
+or PLACE_CURR ="9004" or PLACE_CURR ="9005" or PLACE_CURR 
+="9006" then delete;/*金門*/
+if PLACE_CURR = "9101" or PLACE_CURR ="9102" or PLACE_CURR ="9103" 
+or PLACE_CURR ="9104" then delete;/*連江*/
+/*自述氣喘*/
+if ASTHMA_SELF=1 then asthma=2; /* asthma */
+else if ASTHMA_SELF=. then asthma=1; /* non-asthma */
+run;
+
+Health behaviors n=23877 (delete n=15)
+
+/*physical activity*/
+data aa1;
+set aa;
+If SPO_HABIT=. then delete;
+run;
+/*計算METs*/
+data aa2;
+set aa1;
+if SPO_HABIT_A=10 then MET_A =2;
+if SPO_HABIT_A= 20 then MET_A =8;
+if SPO_HABIT_A= 30 then MET_A =3.8;
+if SPO_HABIT_A= 40 then MET_A =10;
+if SPO_HABIT_A= 50 then MET_A =8.15;
+if SPO_HABIT_A= 61 then MET_A =4;
+if SPO_HABIT_A= 62 then MET_A =2;
+if SPO_HABIT_A= 63 then MET_A =2.5;
+if SPO_HABIT_A= 71 then MET_A =2.5;
+if SPO_HABIT_A= 72 then MET_A =2.5;
+if SPO_HABIT_A= 73 then MET_A =2.5;
+if SPO_HABIT_A= 74 then MET_A =3.1;
+if SPO_HABIT_A= 75 then MET_A =4;
+if SPO_HABIT_A= 76 then MET_A =3;
+if SPO_HABIT_A= 77 then MET_A =3;
+if SPO_HABIT_A= 81 then MET_A =5.75;
+if SPO_HABIT_A= 82 then MET_A =4;
+if SPO_HABIT_A= 83 then MET_A =8.5;
+if SPO_HABIT_A= 84 then MET_A =4.5;
+if SPO_HABIT_A= 85 then MET_A =2.5;
+if SPO_HABIT_A= 86 then MET_A =7.0;
+if SPO_HABIT_A= 87 then MET_A =6.0;
+if SPO_HABIT_A= 88 then MET_A =7.4;
+if SPO_HABIT_A=100 then MET_A =6.5;
+if SPO_HABIT_A=101 then MET_A =4.5;
+if SPO_HABIT_A=110 then MET_A =7;
+if SPO_HABIT_A=120 then MET_A =8;
+if SPO_HABIT_A=130 then MET_A =6;
+if SPO_HABIT_A=140 then MET_A =5.8;
+if SPO_HABIT_A=150 then MET_A =4.5;
+if SPO_HABIT_A=160 then MET_A =3;
+
+if SPO_HABIT_B=10 then MET_B =2;
+if SPO_HABIT_B= 20 then MET_B =8;
+if SPO_HABIT_B= 30 then MET_B =3.8;
+if SPO_HABIT_B= 40 then MET_B =10;
+if SPO_HABIT_B= 50 then MET_B =8.15;
+if SPO_HABIT_B= 61 then MET_B =4;
+if SPO_HABIT_B= 62 then MET_B =2;
+if SPO_HABIT_B= 63 then MET_B =2.5;
+if SPO_HABIT_B= 71 then MET_B =2.5;
+if SPO_HABIT_B= 72 then MET_B =2.5;
+if SPO_HABIT_B= 73 then MET_B =2.5;
+if SPO_HABIT_B= 74 then MET_B =3.1;
+if SPO_HABIT_B= 75 then MET_B =4;
+if SPO_HABIT_B= 76 then MET_B =3;
+if SPO_HABIT_B= 77 then MET_B =3;
+if SPO_HABIT_B= 81 then MET_B =5.75;
+if SPO_HABIT_B= 82 then MET_B =4;
+if SPO_HABIT_B= 83 then MET_B =8.5;
+if SPO_HABIT_B= 84 then MET_B =4.5;
+if SPO_HABIT_B= 85 then MET_B =2.5;
+if SPO_HABIT_B= 86 then MET_B =7.0;
+if SPO_HABIT_B= 87 then MET_B =6.0;
+if SPO_HABIT_B= 88 then MET_B =7.4;
+if SPO_HABIT_B=100 then MET_B =6.5;
+if SPO_HABIT_B=101 then MET_B =4.5;
+if SPO_HABIT_B=110 then MET_B =7;
+if SPO_HABIT_B=120 then MET_B =8;
+if SPO_HABIT_B=130 then MET_B =6;
+if SPO_HABIT_B=140 then MET_B =5.8;
+if SPO_HABIT_B=150 then MET_B =4.5;
+if SPO_HABIT_B=150 then MET_B =4.5;
+ if SPO_HABIT_B=160 then MET_B =3;
+
+if SPO_HABIT_C=10 then MET_C =2;
+if SPO_HABIT_C= 20 then MET_C =8;
+if SPO_HABIT_C= 30 then MET_C =3.8;
+if SPO_HABIT_C= 40 then MET_C =10;
+if SPO_HABIT_C= 50 then MET_C =8.15;
+if SPO_HABIT_C= 61 then MET_C =4;
+if SPO_HABIT_C= 62 then MET_C =2;
+if SPO_HABIT_C= 63 then MET_C =2.5;
+if SPO_HABIT_C= 71 then MET_C =2.5;
+if SPO_HABIT_C= 72 then MET_C =2.5;
+if SPO_HABIT_C= 73 then MET_C =2.5;
+if SPO_HABIT_C= 74 then MET_C =3.1;
+if SPO_HABIT_C= 75 then MET_C =4;
+if SPO_HABIT_C= 76 then MET_C =3;
+if SPO_HABIT_C= 77 then MET_C =3;
+if SPO_HABIT_C= 81 then MET_C =5.75;
+if SPO_HABIT_C= 82 then MET_C =4;
+if SPO_HABIT_C= 83 then MET_C =8.5;
+if SPO_HABIT_C= 84 then MET_C =4.5;
+if SPO_HABIT_C= 85 then MET_C =2.5;
+if SPO_HABIT_C= 86 then MET_C =7.0;
+if SPO_HABIT_C= 87 then MET_C =6.0;
+if SPO_HABIT_C= 88 then MET_C =7.4;
+if SPO_HABIT_C=100 then MET_C =6.5;
+if SPO_HABIT_C=101 then MET_C =4.5;
+if SPO_HABIT_C=110 then MET_C =7;
+if SPO_HABIT_C=120 then MET_C =8;
+if SPO_HABIT_C=130 then MET_C =6;
+if SPO_HABIT_C=140 then MET_C =5.8;
+if SPO_HABIT_C=150 then MET_C =4.5;
+if SPO_HABIT_C=160 then MET_C =3;
+
+/*MET_group*/
+timeA=SPO_HABIT_A_HRS +SPO_HABIT_A_MINS/60;
+timeB=SPO_HABIT_B_HRS +SPO_HABIT_B_MINS/60;
+timeC=SPO_HABIT_C_HRS +SPO_HABIT_C_MINS/60;
+if timeA>=1 then pa=MET_A;
+else  pa=MET_A*timeA;
+if timeB>=1 then pb=MET_B;
+else  pb=MET_B*timeB;
+if timeC>=1 then pc=MET_C;
+else  pc=MET_C*timeC;
+
+averageMETs= mean(pa, pb, pc);
+if averageMETs<3 then groupmets=1;
+else if  3>=averageMETs | averageMETs<=6 then groupmets=2;
+else if averageMETs>6 then groupmets=3;
+else if SPO_HABIT=1 then groupmets=1;
+run;
+
+Tobacco exposure n=23869 (delete n=8)
+/* Alcohol use */
+data aa3;
+set aa2;
+If SMK_CURR=3 then smk_group=3; /* Current use*/
+else if SMK_EXPERIENCE=2 or SMK_CURR=2 then smk_group=2; /* Former use*/ 
+else smk_group=1;/* Never*/
+/* Secondhand */
+If SMK_2ND=. then  delete;
+If DRK=.then delete;
+Run;
+
+/*Age group set*/
+data Twb.TWB_dataclean;
+set aa3;
+if AGE<40 then age_group=1;
+if 40<=AGE<50 then age_group=2;
+if 50<=AGE<60 then age_group=3;
+if AGE>=60 then age_group=4;
+/* Region*/
+
+/* Education*/
+if EDUCATION=1 or  EDUCATION=2 or  EDUCATION=3 then  edu_group=1;/* Primary and below */
+else if EDUCATION=4 or  EDUCATION=5 then edu_group=2;/* junior or senior high school */
+else  edu_group=3;/* College and above */
+
+/* 自述 Family history */
+/*One of parent has asthma*/
+if ASTHMA_FA=1 or ASTHMA_MOM=1 then asthma_parent=1;
+else  asthma_parent=0;
+/*One of sibling has asthma*/
+if ASTHMA_BRO=1 or ASTHMA_SIS=1 then asthma_sibling=1;
+else  asthma_sibling=0;
+/*One of parent has depression(憂鬱症)*/
+if DEPRESSION_FA=1 or DEPRESSION_MOM=1 then dep_parent=1;
+else  dep_parent=0;
+/*One of parent has bipolar disorder(躁鬱症)*/
+if MANIC_DEPRESSION_FA=1 or MANIC_DEPRESSION_MOM=1 then 
+MD_parent=1;
+else  MD_parent =0;
+run;
+
+
+/*Time of asthma onset*/
+data Twb.TWB_dataclean_N;
+set Twb.TWB_dataclean;
+birthday=BIRTH_DATE;
+format birthday yymmddn.; 
+month1=month(birthday);
+day1=day(birthday);
+if ASTHMA_SELF_MONTH=. then ASTHMA_SELF_MONTH1= month1;
+else ASTHMA_SELF_MONTH1= ASTHMA_SELF_MONTH;
+D_day=mdy(ASTHMA_SELF_MONTH1,day1, (ASTHMA_SELF_YEAR+1911));
+Diagnosis_day=D_day;
+format Diagnosis_day yymmddn.;
+/*診斷年齡計算*/
+onsetage = (D_day - birthday)/365.25;
+if onsetage<=12 then AOT=1;/* Early onset */
+else  AOT=2;/* Late onset */
+if asthma=1 or ASTHMA_SELF_YEAR=.  then AOT=.;
+run;
+
+Merge pm2.5 (以月進行附值)
+data  Twb.TWB_EVN;
+set Twb.TWB_dataclean_N;
+surveyday=SURVEY_DATE;
+format surveyday yymmddn.; 
+survey_year=year(surveyday);
+survey_month=month(surveyday);
+run;
+/* Tom.TWB_evn1 */
+proc sql ;
+create table Twb.TWB_EVN1 as
+select * 
+from Twb.TWB_EVN a , Twb.PM b 
+where a.survey_year=b.year and a.survey_month=b.month and a.place_curr=b.NHI_townid;
+quit;
+data Twb.TWB_evn1;
+set  Twb.TWB_evn1;
+drop  year month towncode COUNTYNAME TOWNNAME NHI_townid ;
+run;
+/*排除QC的人 n=20923 (delete n=2946) */
+data twb.qc_TWB;
+merge qc.qc_people(in=a)  Twb.TWB_evn1(in=b);
+by Release_No;
+if a=b;
+run;
+/*將TWB 調查年齡 設為 twbage*/
+data twb.qc_TWB;
+set twb.qc_TWB;
+ twbage=age;
+ drop age ;
+ run;
+
+將體檢資料分類
+/*summary*/
+data twb.qc_twb_finally;
+set twb.qc_twb;
+/*bmi*/
+Bmi=BODY_WEIGHT / (BODY_HEIGHT/100)**2;
+if Bmi <18.5 then class_Bmi=1;
+else if  Bmi >=18.5 and Bmi<24 then class_Bmi=2;
+else if  Bmi >=24 and Bmi<27 then class_Bmi=3;
+else if  Bmi >=27 then class_Bmi=4;
+/*wc*/
+class_wc=0;
+if BODY_WAISTLINE >90 and SEX=1 then class_wc=1;
+if BODY_WAISTLINE >80 and SEX=2 then class_wc=1;
+/*fat*/
+fat_group =1;/*non-obesity*/
+if SEX=1 and BODY_FAT_RATE>=25 then fat_group=2; /* obesity*/
+if SEX=2 and BODY_FAT_RATE>=30 then fat_group=2; /* obesity*/
+if BODY_FAT_RATE=. then  fat_group=3;/*unknown*/
+/*MS*/
+MS1=0;
+if SEX=1 and BODY_WAISTLINE >=90 then MS1=1;
+if SEX=2 and BODY_WAISTLINE >=80 then MS1=1;
+
+/*前2次平均收縮壓 舒張壓*/
+Average_sp=mean(SIT_1_SYSTOLIC_PRESSURE, SIT_2_SYSTOLIC_PRESSURE);
+Average_dp=mean(SIT_1_DIASTOLIC_PRESSURE,SIT_2_DIASTOLIC_PRESSURE);
+ 	MS2=0;
+if HYPERTENSION_SELF=1 then MS2=1;
+if Average_sp >=130 or Average_dp >=85 then MS2=1;
+
+MS3=0;
+if DIABETES_SELF=1 then MS3=1;
+if FASTING_GLUCOSE>=100 then MS3=1;
+	MS4=0;
+if SEX=1 and HDL_C<40 then MS4=1;
+if SEX=2 and HDL_C<50 then MS4=1;
+	MS5=0;
+if TG>=150 then MS5=1;
+MS_grup=1;/*non-MS*/
+Sum_MS=sum(MS1, MS2, MS3, MS4, MS5);
+if Sum_MS>=3 then MS_grup=2;/*MS*/
+drop MS1 MS2 MS3 MS4 MS5;
+run;
+TWB與NHIRD串聯
+針對TWB QC過的資訊與NHIRD 進行串聯
+libname twb "E:\H107217_1\tom_TWBdata\TWB_Data";
+/*之前Tina針對24000人進行門診檔資料的合併*/
+libname data  "E:\H107217_1\Tina_h_nhi_opdte_opdto_10";
+libname merge "E:\H107217_1\tom_TWBdata\TWB_NHIRD\qc_merge_data\qc_opdto_month_new";
+libname yearsum "E:\H107217_1\tom_TWBdata\TWB_NHIRD\qc_merge_data\qc_opdto_year_new";
+libname opdto "E:\H107217_1\tom_TWBdata\TWB_NHIRD\qc_merge_data\qc_opdto_89-105_new";
+門診檔
+/*將QC過後的人其基本資訊(Release_NO  ID DATE) */
+data twb.qc_release_no;
+set twb.qc_twb;
+keep Release_NO id id_s id_ROC SURVEY_DATE BIRTH_DATE;
+run;
+
+/*QC後的資訊與NHI 合併 每月*/
+
+%macro  dm(year,month);
+proc sql ;
+Create table aa  as
+Select *
+From twb.qc_release_no  A , data.h_nhi_opdto&year.&month._10 B
+Where A.ID=B.ID and
+A.ID_S=B.ID_S and 
+A.ID_ROC=B.ID_ROC ;
+Quit;
+data  merge.h_nhi_opdto10512_10;
+set aa;
+keep  Release_NO id id_s id_ROC SURVEY_DATE  FUNC_DATE
+ FEE_YM APPL_TYPE  HOSP_ID APPL_DATE CASE_TYPE  SEQ_NO 
+ICD9CM_1 ICD9CM_2 ICD9CM_3 DRUG_NO year_month;
+run;
+%mend;
+%macro dm_all(starty,endy); 
+ 	%do year=&starty %to &endy;
+ 	%do month=1 %to 9;  %dm(&year, 0&month); %end;
+ 	%do month=0 %to 2;  %dm(&year, 1&month); %end;
+ 	%end;
+%mend ;
+%dm_all(starty=89, endy=105);
+
+
+
+/*將89-105的資料合併為一個*/
+
+
+%macro combine(year);
+data yearsum.h_nhi_opdto&year.;
+set  merge.h_nhi_opdto&year.01_10 merge.h_nhi_opdto&year.02_10 
+merge.h_nhi_opdto&year.03_10  merge.h_nhi_opdto&year.04_10 
+merge.h_nhi_opdto&year.05_10 merge.h_nhi_opdto&year.06_10 
+merge.h_nhi_opdto&year.07_10  merge.h_nhi_opdto&year.08_10 merge.h_nhi_opdto&year.09_10 merge.h_nhi_opdto&year.10_10 merge.h_nhi_opdto&year.11_10 merge.h_nhi_opdto&year.12_10;
+run;
+%mend;
+%macro combine_all(starty,endy); 
+ %do year=&starty %to &endy;
+ %combine(&year)
+ %end;
+%mend ;
+%combine_all(starty=89,endy=105)
+
+
+/*合併為89-105年*/
+
+data opdto.h_nhi_opdto89_105;
+set yearsum.h_nhi_opdto105 yearsum.h_nhi_opdto89-yearsum.h_nhi_opdto104;
+run;
+proc sort data=opdto.h_nhi_opdto89_105;
+by Release_No;
+run;
+
+
+住院檔
+/*之前Tina針對24000人進行住院檔資料的合併*/
+libname tina "E:\H107217_1\Tina_h_nhi_ipdte_ipdto";
+libname twb "E:\H107217_1\tom_TWBdata\TWB_Data";
+libname ipdteto " E:\H107217_1\tom_TWBdata\TWB_NHIRD\qc_merge_data\qc_ipdto";
+libname ipdtoy " E:\H107217_1\tom_TWBdata\TWB_NHIRD\qc_merge_data\qc_ipdto_year";
+libname ipdto "E:\H107217_1\tom_TWBdata\TWB_NHIRD\qc_merge_data\qc_ipdto_89_105_new";
+
+/*QC後的資訊與NHI 合併 每月*/
+%macro dm;
+%do year=89 %to 105;
+%do month=1 %to 12;
+%if &month. < 10 %then %let month2 = 0&month.;
+%if &month.  >= 10 %then %let month2 = &month.;
+proc sql;
+Create table ipdteto.h_nhi_ipdto&year.&month2.  as
+Select *
+From twb.qc_release_no  A , tina.h_nhi_ipdto&year.&month2. B
+Where A.ID=B.ID and
+A.ID_S=B.ID_S and 
+A.ID_ROC=B.ID_ROC  and
+A.Release_No=B.Release_No;
+Quit;
+%end;
+%end;
+%mend;
+%dm;
+
+%macro combine;
+%do year=89 %to 105;
+data ipdtoy.h_nhi_ipdto&year.;
+set ipdto.h_nhi_ipdto&year.01-ipdto.h_nhi_ipdto&year.12;
+		run;
+%end;
+%mend;
+%combine;
+
+data ipdto.h_nhi_ipdto89_105;
+set ipdtoy.h_nhi_ipdto105 ipdtoy.h_nhi_ipdto89-ipdtoy.h_nhi_ipdto104;
+run;
+proc sort data= ipdto.h_nhi_ipdto89_105;by Release_No;run;
+
+/*合併門診檔與住院檔*/
+libname combine " E:\H107217_1\tom_TWBdata\TWB_NHIRD\";
+data combine.qc_nhi_new ;
+set  opdto.h_nhi_opdto89_105  ipdto.h_nhi_ipdto89_105;
+run;
+Asthma、疾病史、Matching data、氣喘用藥
+libname twb “E:\H107217_1\tom_TWBdata\TWB_NHIRD”;
+/*QC ID*/
+libname ID " E:\H107217_1\tom_TWBdata\TWB_Data";
+libname match" E:\H107217_1\tom_TWBdata\TWB_matching ";
+/*將ATC 藥物讀入*/
+PROC IMPORT OUT= ATC_ICS
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_ICS.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+PROC IMPORT OUT= ATC_LABA_ICS
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_LABA_ICS.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+PROC IMPORT OUT= ATC_LAMA
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_LAMA.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+PROC IMPORT OUT= ATC_LTR_antagonist
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_LTR_antagonist.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+PROC IMPORT OUT= ATC_OCS
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_OCS.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+PROC IMPORT OUT= ATC_SABA
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_SABA.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+
+PROC IMPORT OUT= ATC_Xanthine
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_Xanthine.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+
+PROC IMPORT OUT= ATC_Xolair
+    DATAFILE= "F:\H107217\Tom\20200811_H107217 攜入資料\ATC_Xolair.csv"
+    DBMS=CSV REPLACE;
+   GETNAMES=YES;
+   DATAROW=2;
+run;
+
+ /*藥物代碼*/
+proc sql noprint;
+select quote(trim(DrugCode)) into: ICS separated by "," from ATC_ICS;
+quit;
+proc sql noprint;
+select quote(trim(DrugCode)) into: LABA_ICS separated by "," from ATC_LABA_ICS;
+quit;
+proc sql noprint;
+select quote(trim(DrugCode)) into: LAMA separated by "," from  ATC_LAMA;
+quit;
+proc sql noprint;
+select quote(trim(DrugCode)) into: LTR_antagonist separated by "," from ATC_LTR_antagonist;
+quit;
+proc sql noprint;
+select quote(trim(DrugCode)) into: OCS separated by "," from ATC_OCS;
+quit;
+proc sql noprint;
+select quote(trim(DrugCode)) into: SABA separated by "," from ATC_SABA;
+quit;
+proc sql noprint;
+select quote(trim(DrugCode)) into: Xanthine separated by "," from ATC_Xanthine;
+quit;
+proc sql noprint;
+select quote(trim(DrugCode)) into: Xolair separated by "," from ATC_Xolair;
+quit;
+
+
+
+data  NHIRD ;
+set  twb.qc_nhi_new /*串聯檔案*/;
+asthma_code=0;
+/*ICD9 ICD10 以2015為基準*/
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,3) in ("493") | 
+substr(ICD9CM_2,1,3) in ("493") |  substr(ICD9CM_3,1,3) in ("493") | substr(ICD9CM_4,1,3) in ("493") |  substr(ICD9CM_5,1,3)  in ("493")) 
+then asthma_code=1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,3) in ("J45") | 
+substr(ICD9CM_2,1,3) in ("J45") | substr(ICD9CM_3,1,3) in ("J45")|  substr(ICD9CM_4,1,3) in ("J45") | substr(ICD9CM_5,1,3)  in ("J45")) 
+then asthma_code=1;
+copd_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,3) in("491","492","496") |
+substr(ICD9CM_2,1,3) in ("491","492","496") | substr(ICD9CM_3,1,3) in ("491","492", "496") | substr(ICD9CM_4,1,3) in ("491","492","496") | substr(ICD9CM_5,1,3) in ("491","492","496")) 
+then copd_code=1;
+if input(substr(FEE_YM,1,4),4.)>2015 &  (substr(ICD9CM_1,1,4) in ("J44") | 
+substr(ICD9CM_2,1,4) in ("J44") |  substr(ICD9CM_3,1,4) in ("J44") | substr(ICD9CM_4,1,4) in ("J44") |  substr(ICD9CM_5,1,4) in ("J44")) 
+then copd_code=1;
+Depression_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 &  (substr(ICD9CM_1,1,4) in 
+("3004","2962","2963") |  substr(ICD9CM_2,1,4) in ("3004","2962","2963") |  substr(ICD9CM_3,1,4) in ("3004","2962","2963") | substr(ICD9CM_4,1,4)  in ("3004","2962","2963") |  substr(ICD9CM_5,1,4) in ("3004","2962","2963") |  substr(ICD9CM_1,1,3) in ("311") |  substr(ICD9CM_2,1,3) in ("311") |  substr(ICD9CM_3,1,3) in ("311") |  substr(ICD9CM_4,1,3) in ("311") |  substr(ICD9CM_5,1,3) in ("311")) 
+then Depression_code=1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,4) in 
+("F341","F329","F339") | substr(ICD9CM_2,1,4) in ("F341","F329","F339") |  substr(ICD9CM_3,1,4) in ("F341","F329","F339") | substr(ICD9CM_4,1,4) in ("F341","F329","F339") | substr(ICD9CM_5,1,4) in ("F341","F329","F339"))
+then Depression_code=1;
+bd_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,4)  in ("2967") | 
+substr(ICD9CM_2,1,4) in ("2967") |  substr(ICD9CM_3,1,4) in ("2967") |  substr(ICD9CM_4,1,4) in ("2967") |  substr(ICD9CM_5,1,4) in ("2967"))
+then bd_code=1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,4) in ("F319") | 
+substr(ICD9CM_2,1,4) in ("F319") |  substr(ICD9CM_3,1,4) in ("F319")|  substr(ICD9CM_4,1,4) in ("F319") |  substr(ICD9CM_5,1,4) in ("F319")) 
+then bd_code=1;
+OSA_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,5) in ("32723") | 
+substr(ICD9CM_2,1,5) in ("32723") | substr(ICD9CM_3,1,5) in ("32723") |  substr(ICD9CM_4,1,5) in ("32723") | substr(ICD9CM_5,1,5) in ("32723")) 
+then OSA_code=1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,5) in ("G4733") | 
+substr(ICD9CM_2,1,5) in ("G4733")  |  substr(ICD9CM_3,1,5) in ("G4733") |  substr(ICD9CM_4,1,5) in ("G4733")  |  substr(ICD9CM_5,1,5) in ("G4733")) 
+then OSA_code=1;
+GERD_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,5)  in ("53081") | substr(ICD9CM_2,1,5) in ("53081") | substr(ICD9CM_3,1,5) in ("53081") |  substr(ICD9CM_4,1,5) in ("53081") | substr(ICD9CM_5,1,5) in ("53081"))
+then  GERD_code=1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,4) in ("K219") | substr(ICD9CM_2,1,4) in ("K219") |  substr(ICD9CM_3,1,4) in ("K219") |  substr(ICD9CM_4,1,4) in ("K219") |  substr(ICD9CM_5,1,4) in ("K219"))
+then GERD_code=1;
+/* allergic rhinitis */
+AR_code =0;
+If input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,3) in ("477") | 
+substr(ICD9CM_2,1,3) in ("477") | substr(ICD9CM_3,1,3) in ("477") |  substr(ICD9CM_4,1,3) in ("477") | substr(ICD9CM_5,1,3) in ("477")) 
+then AR_code =1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,3)  in ("J30") | substr(ICD9CM_2,1,3) in ("J30") | substr(ICD9CM_3,1,3) in ("J30") |  substr(ICD9CM_4,1,3) in ("J30") | substr(ICD9CM_5,1,3) in ("J30"))
+then AR_code =1;
+/* Nasal polyposis(ICD9 471 ICD10 J33) */
+NP_code =0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,3)  in ("471") | 
+substr(ICD9CM_2,1,3) in ("471") | substr(ICD9CM_3,1,3) in ("471") |  substr(ICD9CM_4,1,3) in ("471") | substr(ICD9CM_5,1,3) in ("471")) 
+then NP_code =1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,3)  in ("J33") | 
+substr(ICD9CM_2,1,3) in ("J33") | substr(ICD9CM_3,1,3) in ("J33") |  substr(ICD9CM_4,1,3) in ("J33") | substr(ICD9CM_5,1,3) in ("J33")) 
+then NP_code =1;
+/*Chronic sinusitis(ICD9 473 ICD10 J32) */
+CS_code =0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,3)  in ("473") | 
+substr(ICD9CM_2,1,3) in ("473") | substr(ICD9CM_3,1,3) in ("473") |  substr(ICD9CM_4,1,3) in ("473") | substr(ICD9CM_5,1,3) in ("473")) 
+then CS_code =1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,3)  in ("J32") | 
+substr(ICD9CM_2,1,3) in ("J32") | substr(ICD9CM_3,1,3) in ("J32") |  substr(ICD9CM_4,1,3) in ("J32") | substr(ICD9CM_5,1,3) in ("J32")) 
+then CS_code =1;
+/*高血壓*/
+Hypertension_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,3)  in 
+("401","402","403","404","405") | substr(ICD9CM_2,1,3) in ("401","402","403","404","405") | substr(ICD9CM_3,1,3) in ("401","402","403","404","405") | substr(ICD9CM_4,1,3) in ("401","402","403","404","405") | substr(ICD9CM_5,1,3) in ("401","402","403","404","405")) 
+then Hypertension_code =1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,3)  in 
+("I10,","I11","I12","I13","I15") | substr(ICD9CM_2,1,3) in ("I10,","I11","I12","I13","I15") | substr(ICD9CM_3,1,3) in ("I10,","I11","I12","I13","I15") | substr(ICD9CM_4,1,3) in ("I10,","I11","I12","I13","I15") | substr(ICD9CM_5,1,3) in ("I10,","I11","I12","I13","I15")) 
+then Hypertension_code =1;
+/*糖尿病*/
+diabetes_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 & (substr(ICD9CM_1,1,3)  in ("250","251") | 
+substr(ICD9CM_2,1,3) in ("250") | substr(ICD9CM_3,1,3) in ("250") |  substr(ICD9CM_4,1,3) in ("250") | substr(ICD9CM_5,1,3) in ("250"))
+then diabetes_code =1;
+if input(substr(FEE_YM,1,4),4.)>2015 & (substr(ICD9CM_1,1,3)  in 
+("E10,","E11","E12","E13","E14") | substr(ICD9CM_2,1,3) in ("E10,","E11","E12","E13","E14") | substr(ICD9CM_3,1,3) in ("E10,","E11","E12","E13","E14") | substr(ICD9CM_4,1,3) in ("E10,","E11","E12","E13","E14") | substr(ICD9CM_5,1,3) in ("E10,","E11","E12","E13","E14"))
+then diabetes_code =1;
+/*高血脂*/
+hyperlipidemia_code=0;
+if input(substr(FEE_YM,1,4),4.)<=2015 &  (substr(ICD9CM_1,1,3) in ("272") | 
+substr(ICD9CM_2,1,3) in ("272") | substr(ICD9CM_3,1,3) in ("272") |  substr(ICD9CM_4,1,3) in ("272") | substr(ICD9CM_5,1,3) in ("272"))
+then hyperlipidemia_code =1;
+if input(substr(FEE_YM,1,4),4.)>2015 &  (substr(ICD9CM_1,1,3)  in ("E78") | 
+substr(ICD9CM_2,1,3) in ("E78") | substr(ICD9CM_3,1,3) in ("E78") |  substr(ICD9CM_4,1,3) in ("E78") | substr(ICD9CM_5,1,3) in ("E78")) 
+then hyperlipidemia_code =1;
+
+/*asthma drug */
+ICS =0;
+if DRUG_NO in (&ICS) then ICS =1;
+if ORDER_CODE in (&ICS) then ICS =1;
+LTR_antagonist=0;
+if DRUG_NO in (&LTR_antagonist) then LTR_antagonist=1;
+if ORDER_CODE in (&LTR_antagonist) then LTR_antagonist=1;
+Xanthine=0;
+if DRUG_NO in (&Xanthine) then Xanthine=1;
+if ORDER_CODE in (&Xanthine) then Xanthine=1;
+SABA=0;
+if DRUG_NO in (&SABA) then SABA=1;
+if ORDER_CODE in (&SABA) then SABA=1;
+LABA_ICS=0;
+if DRUG_NO in (&LABA_ICS) then LABA_ICS=1;
+if ORDER_CODE in (&LABA_ICS) then LABA_ICS=1;
+LAMA=0;
+if DRUG_NO in (&LAMA) then LAMA=1;
+if ORDER_CODE in (&LAMA) then LAMA=1;
+Xolair=0;
+if DRUG_NO in (&Xolair) then Xolair=1;
+if ORDER_CODE in (&Xolair) then Xolair=1;
+OCS=0;
+if DRUG_NO in (&OCS) then OCS=1;
+if ORDER_CODE in (&OCS) then OCS=1;
+asthmadrug=0;
+if ICS =1 or LTR_antagonist=1 or Xanthine=1 or SABA=1 or LABA_ICS=1 
+then asthmadrug=1;
+/*日期重新設定*/
+if FUNC_DATE not=" " then indate1=FUNC_DATE;
+if IN_DATE not=" " then indate1= IN_DATE;
+ run;
+/*疾病史*/
+/*Disease  一年2次判斷*/
+
+data d1 d2 d3 d4 d5 d6 d7 d8 d9 d10 d11;
+set NHIRD;
+if Depression_code=1 then output d1;
+if BD_code=1 then output d2;
+if OSA_code=1 then output d3;
+if GERD_code=1 then output d4;
+if AR_code=1 then output d5;
+if NP_code=1 then output d6;
+if CS_code=1 then output d7;
+if COPD_code=1 then output d8;
+if Hypertension_code=1 then output d9;
+if diabetes_code=1 then output d10;
+if hyperlipidemia_code=1 then output d11;
+run;
+/*Disease 判斷macro*/
+%macro disease;
+	data disease;
+		set ID.qc_release_no ;
+		keep Release_NO;
+	run;
+	proc sort data= disease;
+		by Release_NO;
+	run;
+	/*總共有11個疾病史*/
+	%do i=1 %to 11;
+		proc sort data=d&i;
+			by Release_NO indate1;
+		run;
+		/*計算2次診斷下不超過1年就算1*/
+		data d&i.1;
+			set d&i;
+			by Release_NO indate1;
+			year=substr(indate1,1,4);
+	 		month=substr(indate1,5,2);
+			day=substr(indate1,7,2);
+			date=MDY(month, day, year);
+			lag_date= ifn(first. Release_NO, (.), lag(date));
+			dif_day=ifn(first. Release_NO, (.), dif(date));
+			d&i.1=0;
+			 if dif_day>0 and dif_day< 365.25 then d&i.1=1;
+			format date yymmdd10.;
+			drop year month day;
+			run;
+		proc sql;
+ 			 create table d&i.2 as
+  			 select Release_NO, sum(d&i.1) as d&i.1_sum from d&i.1
+  			 group by Release_NO; 
+		quit;
+		/*有大於1次此病人定義為疾病患者*/
+		data d&i.3;
+			set d&i.2;
+			d&i.=0;
+			if d&i.1_sum>=1 then d&i.=1;
+			keep Release_NO  d&i. ;
+		run;
+		proc sort data=d&i.3;
+			by Release_NO;
+		run;
+		data  disease;
+			merge disease d&i.3;
+			by Release_NO;
+			if d&i.=. then  d&i.=0;
+		run;
+		
+%end;
+%mend;
+%disease;
+/*疾病史*/
+data twb.disease;
+	set disease;
+	rename  d1= Depression d2=BD d3=OSA d4=GERD d5=AR d6=NP d7=CS d8=COPD d9= Hypertension
+			d10=diabetes d11= hyperlipidemia;
+run;
+
+/*氣喘*/
+data h;
+set NHIRD;
+If asthma_code=0 then delete;
+run;
+proc sort data=h;
+by  Release_NO indate1;
+
+/*計算2次診斷下不超過1年就算1*/
+data h1;
+set h;
+by Release_NO indate1;
+year=substr(indate1,1,4);
+month=substr(indate1,5,2);
+day=substr(indate1,7,2);
+date=MDY(month,day,year);
+lag_date= ifn(first. Release_NO, (.), lag(date));
+dif_day=ifn(first. Release_NO, (.), dif(date));
+asthma1=0;
+if dif_day>0 and dif_day< 365.25 then asthma1=1;
+format date yymmdd10.;
+drop year month day;
+run;
+/*計算2000-2016年有成立的氣喘個數(一年2次)*/
+proc sql;
+  create table h2 as
+  select Release_NO, sum(asthma1) as asthma_icdtwice_sum from h1
+  group by Release_NO; 
+quit;
+/*有大於1次此病人定義為氣喘患者*/
+data h3;
+set h2;
+asthma_icdtwice=0;
+if asthma_icdtwice_sum>=1 then asthma_icdtwice=1;
+keep Release_NO asthma_icdtwice asthma_icdtwice_sum; 
+run;
+/*人數 n=2072*/
+proc freq data=h3; table asthma_icdtwice; run;
+
+data asthma_icdtwice;
+set h3;
+keep Release_NO asthma_icdtwice; 
+run;
+
+proc sort data= asthma_icdtwice; by Release_NO; run;
+proc sort data= twb.qc_twb_finally; by Release_NO; run;
+
+/*氣喘資訊 與 twb 合併*/
+data aa;
+merge twb.qc_twb_finally(in=a)  asthma_icdtwice(in=b);
+by Release_No;
+if asthma_icdtwice=. then asthma_icdtwice=0;
+run;
+proc sort data=aa; by Release_NO; run;
+/*疾病放入*/
+proc sort data=twb.disease;	by Release_No; run;
+data twb_asthma_icdtwice;
+	merge aa(in=a) twb.disease(in=b);
+	by Release_No;
+run;
+proc freq data= twb_asthma_icdtwice;
+table asthma_icdtwice; run;
+/*新增WHtR 更新MET GROUP 以及smoke group*/
+data twb.twb_asthma_icdtwice;
+set twb_asthma_icdtwice;
+wc_hei=BODY_WAISTLINE / BODY_HEIGHT;
+wc_hei_class=0;
+if wc_hei >0.5 then wc_hei_class=1;
+DRK_new=0;
+	if DRK=2 or DRK=3 then DRK_new=1;
+	mets_class=0;
+	if groupmets=2 or groupmets=3 then mets_class=1;
+	smoke_class=0;
+if smk_group=2 or smk_group=3 then smoke_class=1;
+run;
+/*Matching*/
+proc psmatch data=twb.twb_asthma_icdtwice;
+ class asthma_icdtwice sex;
+ psmodel asthma_icdtwice(treated='1') = sex twbage;
+ match method= greedy (k=4 ORDER= random (SEED=666)) distance=lps;
+ assess lps var= (sex twbage) / weight=none plots= (boxplot barchart);
+ output out (obs= match) = match matchid=_MatchID;
+run;
+
+proc sort data=match; by _MatchID; run;
+proc freq data= match; 	table asthma_icdtwice; run;
+/*match 條件*/
+data match_data;
+	set match;
+	drop _MATCHWGT_;
+run;
+proc sort data= match_data;	by Release_no; run;
+/* IID 需要更改長度*/
+data bb;
+	set twb.gene_id;
+	iid_new=iid;
+	keep Release_no iid_new;
+run;
+proc sort data=bb; by Release_no; run;
+/*將IID 改為正確的長度*/
+data match. twb_match_data_finally;
+	merge match_data (in=a) bb (in=b);
+	by Release_no;
+	if a;
+	drop iid;
+	rename iid_new=IID;
+run;
+/*氣喘用藥*/
+data NHIRD;
+set data.qc_nhi_new;
+/*Medication history */
+/*糖尿病用藥(METFORMIN) */
+METFORMIN=0;
+if DRUG_NO in ('A035324100', 'A0353241G0', 'A038498100', 'A0384981G0','A039546100', 
+'A042464100', 'A0424641G0', 'A046686100', 'AB34096100', 'AB340961G0', 'AB35665100', 'AB356651G0', 'AB408351G0', 'AB41233100', 'AB412331G0', 'AB49599100', 'AC36201100', 'AC362011G0', 'AC36204100', 'AC362041G0', 'AC36820100', 'AC368201G0', 'AC38680100', 'AC40047100', 'AC400471G0', 'AC40098100', 'AC40119100', 'AC401191G0', 'AC40781100', 'AC407811G0', 'AC407811G4', 'AC407811G7', 'AC417501G0', 'AC42916100', 'AC429161G0', 'AC44233100', 'AC49531100', 'AC495991G0', 'AC57265100', 'AC57979100', 'AC58072100', 'AC58257100', 'AC58534100', 'AC585341G0', 'AC59686100', 'AC596861G0' )
+then METFORMIN=1;
+if ORDER_CODE in ('A035324100', 'A0353241G0', 'A038498100', 'A0384981G0', 
+'A039546100', 'A042464100', 'A0424641G0', 'A046686100', 'AB34096100', 'AB340961G0', 'AB35665100', 'AB356651G0', 'AB408351G0', 'AB41233100', 'AB412331G0', 'AB49599100', 'AC36201100', 'AC362011G0', 'AC36204100', 'AC362041G0', 'AC36820100', 'AC368201G0', 'AC38680100', 'AC40047100', 'AC400471G0', 'AC40098100', 'AC40119100', 'AC401191G0', 'AC40781100', 'AC407811G0', 'AC407811G4', 'AC407811G7', 'AC417501G0', 'AC42916100', 'AC429161G0', 'AC44233100', 'AC49531100', 'AC495991G0', 'AC57265100', 'AC57979100', 'AC58072100', 'AC58257100', 'AC58534100', 'AC585341G0', 'AC59686100', 'AC596861G0') 
+then METFORMIN=1;
+/*高血脂用藥(statin) */
+statin=0;
+if DRUG_NO in ('A046022100', 'AA58282100', 'AB46029100', 'AB48586100', 'AB49454100', 
+'AC39307100', 'AC39403100', 'AC42539100', 'AC42558100', 'AC47341100', 'AC47924100', 'AC48513100', 'AC48813100', 'AC49360100', 'AC55268100', 'AC55272100', 'AC56804100', 'AC57126100', 'AC57805100', 'AC57809100', 'AC58525100', 'AC58526100', 'AC58605100', 'AC59265100', 'AC59266100', 'AC60174100', 'B024297100', 'B025412100', 'BA26504100', 'BC26147100', 'BC26226100', 'BC26367100', 'BC26368100', 'BC26497100', 'BC26505100', 'BC26582100', 'BC26900100', 'BC27044100', 'BC27256100', 'BC27339100') 
+then statin=1;
+if ORDER_CODE in ('A046022100', 'AA58282100', 'AB46029100', 'AB48586100', 
+'AB49454100', 'AC39307100', 'AC39403100', 'AC42539100', 'AC42558100', 'AC47341100', 'AC47924100', 'AC48513100', 'AC48813100', 'AC49360100', 'AC55268100', 'AC55272100', 'AC56804100', 'AC57126100', 'AC57805100', 'AC57809100',  'AC58525100', 'AC58526100', 'AC58605100', 'AC59265100', 'AC59266100', 'AC60174100', 'B024297100', 'B025412100', 'BA26504100',  'BC26147100', 'BC26226100', 'BC26367100', 'BC26368100', 'BC26497100', 'BC26505100', 'BC26582100', 'BC26900100', 'BC27044100', 'BC27256100', 'BC27339100') 
+then statin=1;
+/*Aspirin*/
+Aspirin=0;
+if DRUG_NO in ("A003092100","A004813100","A021870100","A023534100","A024465100",
+"A025160100","A026164100","A032045100","A036599100","A0376542B9","A039169277","A040826100","A0429341G0","A044016100","A0440161G0","AC37344100","AC373441G0","AC37702100","AC41220100","AC41814100","AC418141G0","AC41823209","AC41823277","AC42774100","AC42934100","AC43309100","AC433091G0","AC43664100","AC436641G0","AC44176100","AC441761G0","AC495361G0","BC24025100","BC240251G0","N011693100") 
+then Aspirin=1;
+if ORDER_CODE in ("A003092100","A004813100","A021870100","A023534100","A024465100",
+"A025160100","A026164100","A032045100","A036599100","A0376542B9","A039169277","A040826100","A0429341G0","A044016100","A0440161G0","AC37344100","AC373441G0","AC37702100","AC41220100","AC41814100","AC418141G0","AC41823209","AC41823277","AC42774100","AC42934100","AC43309100","AC433091G0","AC43664100","AC436641G0","AC44176100","AC441761G0","AC495361G0","BC24025100","BC240251G0","N011693100") 
+then Aspirin=1;
+/* Beta_blockers-用於狹心症、高血壓*/
+Beta_blockers=0;
+if DRUG_NO in ('BC20452100', 'BC22071100', 'BC24532100', 'AC32350221', 
+'AC39703100', 'AC10332100', 'B022143100', 'BC221431G0', 'A016350100', 'A018250100', 'A0182501G0', 'A020927100', 'A022259100', 'A029881100', 'A0339001G0', 'AB09102100', 'AB091021G0', 'AB18251100', 'AB43852100', 'BC21303100', 'BC24977414', 'AC46867100', 'A031032100', 'A036844100', 'AB41956100', 'AC29301100', 'AC29313100', 'BC16888100', 'BC17125100', 'BC24039100', 'AC49915100', 'AC49623100', 'AC49544100', 'AC49504100', 'AC49083100', 'AC48905100', 'AB55984100', 'AB48439100', 'AB47538100', 'AB45348100', 'AC50061100', 'AC57868100', 'AC58077100', 'AB44619100', 'AC45354100', 'BC21530100', 'BC22553100', 'A041679100', 'AB29478100', 'AB294781G0', 'AB32322100', 'AB323221G0', 'AB33029100', 'AB330291G0', 'AB34359100', 'AB343591G0', 'AB361291G0', 'AB36130100', 'AB361301G0', 'AB38867100', 'AB388671G0', 'AB44843100', 'AB448431G0', 'AB515971G0', 'AC25840100', 'AC258401G0', 'AC27452100', 'AC274521G0', 'AC29735100', 'AC297351G0', 'AC29804100', 'AC31223100', 'AC312231G0', 'AC33124100', 'AC331241G0', 'AC34300100', 'AC35367100', 'AC353671G0', 'AC36129100', 'AC37928100', 'AC379281G0', 'AC39816100', 'AC398161G0', 'AC39843100', 'AC398431G0', 'AC41497100', 'AC414971G0', 'AC43598100', 'AC435981G0', 'AC43704100', 'AC437041G0', 'AC44163100', 'BC221591G0', 'BC221601G0') 
+then Beta_blockers=1;
+if ORDER_CODE in ('BC20452100', 'BC22071100', 'BC24532100', 'AC32350221', 
+'AC39703100', 'AC10332100', 'B022143100', 'BC221431G0', 'A016350100', 'A018250100', 'A0182501G0', 'A020927100', 'A022259100', 'A029881100', 'A0339001G0', 'AB09102100', 'AB091021G0', 'AB18251100', 'AB43852100', 'BC21303100', 'BC24977414', 'AC46867100', 'A031032100', 'A036844100', 'AB41956100', 'AC29301100', 'AC29313100', 'BC16888100', 'BC17125100', 'BC24039100', 'AC49915100', 'AC49623100', 'AC49544100', 'AC49504100', 'AC49083100', 'AC48905100', 'AB55984100', 'AB48439100', 'AB47538100', 'AB45348100', 'AC50061100', 'AC57868100', 'AC58077100', 'AB44619100', 'AC45354100', 'BC21530100', 'BC22553100', 'A041679100', 'AB29478100', 'AB294781G0', 'AB32322100', 'AB323221G0', 'AB33029100', 'AB330291G0', 'AB34359100', 'AB343591G0', 'AB361291G0', 'AB36130100', 'AB361301G0', 'AB38867100', 'AB388671G0', 'AB44843100', 'AB448431G0', 'AB515971G0', 'AC25840100', 'AC258401G0', 'AC27452100', 'AC274521G0', 'AC29735100', 'AC297351G0', 'AC29804100', 'AC31223100', 'AC312231G0', 'AC33124100', 'AC331241G0', 'AC34300100', 'AC35367100', 'AC353671G0', 'AC36129100', 'AC37928100', 'AC379281G0', 'AC39816100', 'AC398161G0', 'AC39843100', 'AC398431G0', 'AC41497100', 'AC414971G0', 'AC43598100', 'AC435981G0', 'AC43704100', 'AC437041G0', 'AC44163100', 'BC221591G0', 'BC221601G0') 
+then Beta_blockers=1;
+keep Release_NO  METFORMIN  statin  Aspirin  Beta_blockers;
+run;
+
+proc sql;
+create table drug_disease as 
+select Release_NO, sum(METFORMIN) as  METFORMIN1 ,sum(statin) as  
+statin1, sum(Aspirin) as  Aspirin1 ,sum(Beta_blockers) as Beta_blockers1 
+from NHIRD 
+group by Release_NO;
+quit;
+
+
+data twb.drug_disease;
+	set drug_disease;
+	 METFORMIN=0; statin=0; Aspirin=0; Beta_blockers=0;
+	if METFORMIN1>=1 then METFORMIN=1;
+	if statin1>=1 then statin=1;
+	if Aspirin1>=1 then Aspirin=1;
+	if Beta_blockers1>=1 then Beta_blockers=1;
+	drop METFORMIN1 statin1 Aspirin1 Beta_blockers1;
+run;
+
+
