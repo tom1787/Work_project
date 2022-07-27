@@ -1,0 +1,409 @@
+library(data.table)
+library(lubridate)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+
+#locate
+setwd("C:\\Users\\奕碁\\Desktop\\INLA code\\")
+locate<-data.frame(fread("雙北村里中心點_經緯度.csv",encoding="UTF-8"))
+locate<-locate[,c(2,3,4,11,12)]
+#delete no village name
+locate<-locate[locate$VILLNAME!="",]
+
+t<-c("永館里","五峯里","峯廷里","灰磘里","瓦磘里","獇寮里","新廍里","公館里","爪峯里","崁脚里","糖廍里")
+a<-locate[which(str_detect(locate$VILLNAME, pattern="\\?", negate = FALSE)),c("VILLNAME")]
+for(i in 1:length(a)){
+  locate[locate$VILLNAME==a[i],"VILLNAME"]<-t[i]
+}
+locate$locate_town<-paste0(locate$COUNTYNAME,locate$TOWNNAME,locate$VILLNAME)
+
+#New Taipei city
+NTC<-data.frame(fread("New_Taipei_City.csv"))
+NTC$Date<-as.POSIXct(NTC$Date,format="%Y年%m月%d日")
+#consider date  5/1-7/20
+NTC<-NTC[NTC$Date>=as.POSIXct("2021-05-01") & NTC$Date<as.POSIXct("2021-07-21"),]
+#delete NA 
+NTC<-NTC[!is.na(NTC$鄉鎮村里),]
+names(NTC)[1]<-"Village"
+#name adjust
+t<-c("新北市土城區峯廷里","新北市新店區五峯里","新北市三峽區永舘里","新北市永和區新廍里",
+     "新北市板橋區公館里","新北市樹林區獇寮里","新北市中和區瓦磘里","新北市瑞芳區爪峯里")
+a<-unique(NTC$Village)[which(str_detect(unique(NTC$Village), pattern="\\?", negate = FALSE))]
+for(i in 1:length(a)){
+  NTC[NTC$Village==a[i],"Village"]<-t[i]
+}
+#5/4 missing
+plus<-NTC[!duplicated(NTC$Village),]
+plus$Date<-"2021-05-04"
+plus$cases<-0
+NTC<-rbind(NTC,plus)
+NTC<-NTC[order(NTC$Village,NTC$Date),]
+NTC<-NTC[!(substr(NTC$Village,4,6)=="萬華區" & substr(NTC$Village,7,9)=="壽德里"),]
+NTC<-NTC[!(substr(NTC$Village,4,6)=="三峽區" & substr(NTC$Village,7,9)=="永舘里"),]
+#Taipei city
+TC<-data.frame(fread("Taipei_City.csv"))
+#consider date  5/1-7/20
+TC$Date<-as.POSIXct(TC$Date,format="%Y/%m/%d")
+#consider date  5/1-7/20
+TC<-TC[TC$Date>=as.POSIXct("2021-05-01") & TC$Date<as.POSIXct("2021-07-21"),]
+#name adjust
+TC[TC$Village=="萬華區糖?里","Village"]<-"萬華區糖廍里"
+
+
+#village name rbind
+Village_NTC<-substr(NTC$Village,1,9)
+Village_TC<-paste0("臺北市",TC$Village)
+
+NTC$locate_town<-Village_NTC
+TC$locate_town<-Village_TC
+
+NTC_TC<-rbind(NTC,TC)
+NTC_TC<-NTC_TC[,-1]
+
+locate1<-locate[,c("X","Y","locate_town")]
+locate2<-merge(NTC_TC,locate1,by="locate_town",all=T)
+
+#delete undef
+locate2<-locate2[locate2$locate_town!="新北市undefi",]
+
+#NA lon lat
+locate2<-locate2[!is.na(locate2$X),]
+
+#加入NA case 的地區
+locate2<-locate2[order(locate2$Date),]
+new<-locate2[locate2$locate_town=="新北市八里區下罟里",c("Date","cases")]
+new$cases<-0
+new2<-NULL
+z<-locate2[!duplicated(locate2$locate_town) & is.na(locate2$cases),c("locate_town","X","Y")]
+for(i in 1:nrow(z)){
+  new1<-new
+  new1$locate_town<-z$locate_town[i]
+  new1$X<-z$X[i]
+  new1$Y<-z$Y[i]
+  new2<-rbind(new2,new1)
+}
+#
+new3<- new2[,c("locate_town","Date","cases","X","Y")]
+#先排除NA case 再賦值
+locate3<-locate2[!is.na(locate2$cases),]
+locate3<-rbind(locate3,new3)
+data<-locate3
+data$COUNTY<-substr(data$locate_town,1,3)
+data$TOWN<-substr(data$locate_town,4,6)
+data$VILLAGE<-substr(data$locate_town,7,9)
+names(data)[4:5]<-c("lon","lat")
+data$COUNTY<-str_replace(data$COUNTY,"台北市","臺北市")
+data[data$TOWN=="坪林區" & data$VILLAGE=="石[曹","VILLAGE"]<-"石?里"
+
+
+##population input
+setwd("C:\\Users\\user\\Desktop\\Covid\\")
+population<-data.frame(fread("110年6月行政區人口統計_村里.csv"))
+population<-population[-1,]
+population<-population[,c(5,2,4,6,8)]
+population$VILLAGE[(str_detect(population$VILLAGE,"")|str_detect(population$VILLAGE,"")|str_detect(population$VILLAGE,"") | str_detect(population$VILLAGE,"") | str_detect(population$VILLAGE,"■") )& (population$COUNTY=="新北市" | population$COUNTY=="臺北市")]<-c("公館里","瓦磘里","灰磘里","新廍里","五峯里","獇寮里","永館里","爪峯里","濂新里" ,"濂洞里","峯廷里","石?里","崁脚里","糖廍里")
+
+data1<-merge(data,population,by=c("COUNTY","TOWN","VILLAGE"),all=T)
+#only consider 雙北
+data1<-data1[data1$COUNTY=="新北市" | data1$COUNTY=="臺北市",]
+sum(is.na(data1$case))
+sum(is.na(data1$P_CNT))
+
+##save data 
+data<-data1[order(data1$V_ID,data1$Date),]
+head(data)
+#data calculate mean cases 
+# data_0510<-data.frame(data[data$Date>=as.Date("2021-05-01") &  data$Date<=as.Date("2021-05-14"),] %>%
+#   group_by(COUNTY,TOWN,VILLAGE,locate_town) %>%
+#   summarise(V_ID=unique(V_ID),P_CNT=unique(P_CNT),cases=mean(cases)))
+# data_0510$Date<-"20210510"
+# data_0516<-data.frame(data[data$Date>=as.Date("2021-05-15") &  data$Date<=as.Date("2021-05-19"),] %>%
+#   group_by(COUNTY,TOWN,VILLAGE,locate_town) %>%
+#   summarise(V_ID=unique(V_ID),P_CNT=unique(P_CNT),cases=mean(cases)))
+# data_0516$Date<-"20210516"
+# data_0520<-data.frame(data[data$Date>=as.Date("2021-05-20") &  data$Date<=as.Date("2021-06-11"),] %>%
+#   group_by(COUNTY,TOWN,VILLAGE,locate_town) %>%
+#   summarise(V_ID=unique(V_ID),P_CNT=unique(P_CNT),cases=mean(cases)))
+# data_0520$Date<-"20210520"
+# data<-rbind(data_0510,data_0516,data_0520)
+##Flow of people data
+getwd()
+
+
+setwd("C:\\Users\\user\\Desktop\\Covid\\人流資料")
+C_Pop_180510<-data.frame(fread(list.files(getwd(),pattern = ".csv")[1],encoding = "UTF-8"))
+C_Pop_180516<-data.frame(fread(list.files(getwd(),pattern = ".csv")[2],encoding = "UTF-8"))
+C_Pop_180520<-data.frame(fread(list.files(getwd(),pattern = ".csv")[3],encoding = "UTF-8"))
+C_Pop_220510<-data.frame(fread(list.files(getwd(),pattern = ".csv")[4],encoding = "UTF-8"))
+C_Pop_220516<-data.frame(fread(list.files(getwd(),pattern = ".csv")[5],encoding = "UTF-8"))
+C_Pop_220520<-data.frame(fread(list.files(getwd(),pattern = ".csv")[6],encoding = "UTF-8"))
+C_Pop_300510<-data.frame(fread(list.files(getwd(),pattern = ".csv")[7],encoding = "UTF-8"))
+C_Pop_300516<-data.frame(fread(list.files(getwd(),pattern = ".csv")[8],encoding = "UTF-8"))
+C_Pop_300520<-data.frame(fread(list.files(getwd(),pattern = ".csv")[9],encoding = "UTF-8"))
+C_Pop_600510<-data.frame(fread(list.files(getwd(),pattern = ".csv")[10],encoding = "UTF-8"))
+C_Pop_600516<-data.frame(fread(list.files(getwd(),pattern = ".csv")[11],encoding = "UTF-8"))
+C_Pop_600520<-data.frame(fread(list.files(getwd(),pattern = ".csv")[12],encoding = "UTF-8"))
+
+C_Pop_300510$EC<-NA;C_Pop_300516$EC<-NA;C_Pop_300520$EC<-NA
+
+#combine by Date
+names(C_Pop_180510)<-c("x1","names","in_deg_18","out_deg_18","EC_18","auth_18","hub_18","PR_18")
+C_Pop_180510<-C_Pop_180510[,c(-1)]
+names(C_Pop_180516)<-c("x1","names","in_deg_18","out_deg_18","EC_18","auth_18","hub_18","PR_18")
+C_Pop_180516<-C_Pop_180516[,c(-1)]
+names(C_Pop_180520)<-c("x1","names","in_deg_18","out_deg_18","EC_18","auth_18","hub_18","PR_18")
+C_Pop_180520<-C_Pop_180520[,c(-1)]
+names(C_Pop_220510)<-c("x1","names","in_deg_22","out_deg_22","EC_22","auth_22","hub_22","PR_22")
+C_Pop_220510<-C_Pop_220510[,-c(1)]
+names(C_Pop_220516)<-c("x1","names","in_deg_22","out_deg_22","EC_22","auth_22","hub_22","PR_22")
+C_Pop_220516<-C_Pop_220516[,-c(1)]
+names(C_Pop_220520)<-c("x1","names","in_deg_22","out_deg_22","EC_22","auth_22","hub_22","PR_22")
+C_Pop_220520<-C_Pop_220520[,-c(1)]
+names(C_Pop_300510)<-c("x1","names","in_deg_30","out_deg_30","auth_30","hub_30","PR_30","EC_30")
+C_Pop_300510<-C_Pop_300510[,-c(1)]
+names(C_Pop_300516)<-c("x1","names","in_deg_30","out_deg_30","auth_30","hub_30","PR_30","EC_30")
+C_Pop_300516<-C_Pop_300516[,-c(1)]
+names(C_Pop_300520)<-c("x1","names","in_deg_30","out_deg_30","auth_30","hub_30","PR_30","EC_30")
+C_Pop_300520<-C_Pop_300520[,-c(1)]
+names(C_Pop_600510)<-c("x1","names","in_deg_60","out_deg_60","EC_60","auth_60","hub_60","PR_60")
+C_Pop_600510<-C_Pop_600510[,-c(1)]
+names(C_Pop_600516)<-c("x1","names","in_deg_60","out_deg_60","EC_60","auth_60","hub_60","PR_60")
+C_Pop_600516<-C_Pop_600516[,-c(1)]
+names(C_Pop_600520)<-c("x1","names","in_deg_60","out_deg_60","EC_60","auth_60","hub_60","PR_60")
+C_Pop_600520<-C_Pop_600520[,-c(1)]
+
+C_Pop_0510<-Reduce(function(x, y) merge(x, y,by="names",all=TRUE), list(C_Pop_180510, C_Pop_220510, C_Pop_300510,C_Pop_600510))
+C_Pop_0516<-Reduce(function(x, y) merge(x, y,by="names",all=TRUE), list(C_Pop_180516,C_Pop_220516,C_Pop_300516,C_Pop_600516))
+C_Pop_0520<-Reduce(function(x, y) merge(x, y,by="names",all=TRUE), list(C_Pop_180520,C_Pop_220520,C_Pop_300520,C_Pop_600520))
+
+
+##only consider 臺北市 新北市
+C_Pop_0510<-data.frame(C_Pop_0510)
+C_Pop_0510$COUNTY<-substr(C_Pop_0510$names,1,3)
+C_Pop_0510$TOWN<-substr(C_Pop_0510$names,4,6)
+C_Pop_0510$VILLAGE<-substr(C_Pop_0510$names,7,9)
+C_Pop_0510<-C_Pop_0510[C_Pop_0510$COUNTY=="臺北市" | C_Pop_0510$COUNTY=="新北市",]
+
+C_Pop_0516<-data.frame(C_Pop_0516)
+C_Pop_0516$COUNTY<-substr(C_Pop_0516$names,1,3)
+C_Pop_0516$TOWN<-substr(C_Pop_0516$names,4,6)
+C_Pop_0516$VILLAGE<-substr(C_Pop_0516$names,7,9)
+C_Pop_0516<-C_Pop_0516[C_Pop_0516$COUNTY=="臺北市" | C_Pop_0516$COUNTY=="新北市",]
+
+C_Pop_0520<-data.frame(C_Pop_0520)
+C_Pop_0520$COUNTY<-substr(C_Pop_0520$names,1,3)
+C_Pop_0520$TOWN<-substr(C_Pop_0520$names,4,6)
+C_Pop_0520$VILLAGE<-substr(C_Pop_0520$names,7,9)
+C_Pop_0520<-C_Pop_0520[C_Pop_0520$COUNTY=="臺北市" | C_Pop_0520$COUNTY=="新北市",]
+#delete name
+
+##data consider date 5/1-6/11
+
+data<-data[data$Date>=as.POSIXct("2021-05-01") & data$Date<=as.POSIXct("2021-06-11"),]
+
+C_Pop_0510[C_Pop_0510$TOWN=="板橋區" & C_Pop_0510$VILLAGE=="公舘里","VILLAGE"]<-"公館里"
+C_Pop_0516[C_Pop_0516$TOWN=="板橋區" & C_Pop_0516$VILLAGE=="公舘里","VILLAGE"]<-"公館里"
+C_Pop_0520[C_Pop_0520$TOWN=="板橋區" & C_Pop_0520$VILLAGE=="公舘里","VILLAGE"]<-"公館里"
+C_Pop_0510[C_Pop_0510$TOWN=="坪林區"& C_Pop_0510$VILLAGE=="石[曹" ,"VILLAGE"]<-"石?里"
+C_Pop_0516[C_Pop_0516$TOWN=="坪林區"& C_Pop_0516$VILLAGE=="石[曹" ,"VILLAGE"]<-"石?里"
+C_Pop_0520[C_Pop_0520$TOWN=="坪林區"& C_Pop_0520$VILLAGE=="石[曹" ,"VILLAGE"]<-"石?里"
+C_Pop_0510[C_Pop_0510$TOWN=="三峽區" & C_Pop_0510$VILLAGE=="永舘里","VILLAGE"] <-"永館里"
+C_Pop_0516[C_Pop_0516$TOWN=="三峽區" & C_Pop_0516$VILLAGE=="永舘里","VILLAGE"] <-"永館里"
+C_Pop_0520[C_Pop_0520$TOWN=="三峽區" & C_Pop_0520$VILLAGE=="永舘里","VILLAGE"] <-"永館里"
+
+
+data_pop_0510<-merge(data[data$Date>=as.Date("2021-05-01") & data$Date<=as.Date("2021-05-14"),],C_Pop_0510,by=c("COUNTY","TOWN","VILLAGE"),all.x = T)
+data_pop_0516<-merge(data[data$Date>=as.Date("2021-05-15") & data$Date<=as.Date("2021-05-18"),],C_Pop_0516,by=c("COUNTY","TOWN","VILLAGE"),all.x = T)
+data_pop_0520<-merge(data[data$Date>=as.Date("2021-05-19") & data$Date<=as.Date("2021-06-11"),],C_Pop_0520,by=c("COUNTY","TOWN","VILLAGE"),all.x = T)
+
+data<-rbind(data_pop_0510,data_pop_0516,data_pop_0520)
+
+##ID
+data$VILLCODE<-(str_replace(data$V_ID,"-",""))
+
+##國土利用率 
+##
+
+setwd("C:\\Users\\user\\Desktop\\Covid\\")
+Utilization_newTaipei<-data.frame(fread("108新北國土利用調查.csv"))
+Utilization_Taipei<-data.frame(fread("108臺北國土利用調查.csv"))
+Utilization_newTaipei$VILLCODE<-paste0(Utilization_newTaipei$TOWN_ID,sprintf("%04d",Utilization_newTaipei$U_ID))
+Utilization_Taipei$VILLCODE<-paste(Utilization_Taipei$TOWN_ID,Utilization_Taipei$VILLAGE_ID,sep="")
+
+Utilization_newTaipei<-
+  data.frame(Utilization_newTaipei %>%
+  group_by(COUNTY,TOWN,VILLAGE)  %>%
+  summarise(政府機關=sum(政府機關)/sum(AREA_SUM),學校=sum(學校)/sum(AREA_SUM),
+            醫療保健=sum(醫療保健)/sum(AREA_SUM),社會福利設施=sum(社會福利設施)/sum(AREA_SUM),
+            公用設備=sum(公用設備)/sum(AREA_SUM),環保設施=sum(環保設施)/sum(AREA_SUM),
+            文化設施=sum(文化設施)/sum(AREA_SUM),公園綠地廣場=sum(公園綠地廣場)/sum(AREA_SUM),
+            休閒設施 =sum(休閒設施)/sum(AREA_SUM),
+            商業=sum(商業)/sum(AREA_SUM),純住宅=sum(純住宅)/sum(AREA_SUM),
+            混合使用住宅=sum(混合使用住宅)/sum(AREA_SUM),製造業=sum(製造業)/sum(AREA_SUM)))
+Utilization_newTaipei$VILLAGE<-str_replace(string = Utilization_newTaipei$VILLAGE,pattern = "村","里")
+for(i in 4:(length(Utilization_newTaipei))){
+  Utilization_newTaipei[is.nan(Utilization_newTaipei[,i]),i]<-0
+  Utilization_newTaipei[is.na(Utilization_newTaipei[,i]),i]<-0
+}
+
+
+Utilization_Taipei<-
+  data.frame(Utilization_Taipei %>%
+               group_by(COUNTY,TOWN,VILLAGE)  %>%
+               summarise(政府機關=sum(政府機關)/sum(土地面積總數),
+                         學校=sum(學校)/sum(土地面積總數),
+                         醫療保健=sum(醫療保健)/sum(土地面積總數),
+                         社會福利設施=sum(社會福利設施)/sum(土地面積總數),
+                         公用設備=sum(公用設備)/sum(土地面積總數),
+                         環保設施=sum(環保設施)/sum(土地面積總數),
+                         文化設施=sum(文化設施)/sum(土地面積總數),
+                         公園綠地廣場=sum(公園綠地廣場)/sum(土地面積總數),
+                         休閒設施 =sum(休閒設施)/sum(土地面積總數),
+                         商業=sum(商業)/sum(土地面積總數),
+                         純住宅=sum(純住宅)/sum(土地面積總數),
+                         混合使用住宅=sum(混合使用住宅)/sum(土地面積總數),
+                         製造業=sum(製造業)/sum(土地面積總數)))
+for(i in 4:(length(Utilization_Taipei))){
+  Utilization_Taipei[is.nan(Utilization_Taipei[,i]),i]<-0
+  Utilization_Taipei[is.na(Utilization_Taipei[,i]),i]<-0
+}
+Utilization<-rbind(Utilization_newTaipei,Utilization_Taipei)
+x<-c("五峰里","爪峰里","瓦嗂里","石嘈里","灰嗂里","峰廷里","崁腳里","新部里","蜣寮里","糖蔀里") 
+x1<-c("五峯里","爪峯里","瓦磘里","石?里","灰磘里","峯廷里","崁脚里","新廍里","獇寮里","糖廍里")
+for( i in 1:length(x)){
+  Utilization$VILLAGE[Utilization$VILLAGE==x[i]]<-x1[i]
+}
+Utilization<-data.frame(Utilization)
+
+data<- merge(data,Utilization,by=c("COUNTY","TOWN","VILLAGE"),all.x=TRUE)
+
+x<-c("保新里","南湖里","城中里","建成里","政大里","湖蓮里","樟文里","樟樹里","興邦里","龍恩里","龍學里","寶湖里")
+
+for(i in 1:length(x)){
+  data[data$VILLAGE==x[i] & is.na(data$政府機關),c(37:49)]<-0
+}
+
+
+write.csv(data,"C:\\Users\\user\\Desktop\\Covid\\Villagedata.csv",row.names=F)
+
+##加入人口密度及老化指數 Density and Aging_index
+
+setwd("C:\\Users\\奕碁\\Desktop\\INLA code\\")
+library(stringr)
+data<-data.frame(fread("Village.csv"))
+data$VILLCODE<-as.character(data$VILLCODE)
+new<-data.frame(fread("雙北村里人口密度.csv"))
+new$VILLCODE<-stringr::str_replace(new$村里代碼,"-","")
+new$Density<-new$人口密度
+new$Aging_index<-new$老化指數
+new<-new[,c("VILLCODE","Density","Aging_index")]
+data1<-merge(data,new,by="VILLCODE",all.x=T)
+
+write.csv(data1,"Village1.csv",row.names=F)
+
+
+##model
+library(dplyr)
+library(data.table)
+library(stringr)
+#install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)
+library(INLA)
+#map and plot 
+library(sp)
+library(sf)
+library(spdep)
+library(rgdal)
+setwd("C:\\Users\\user\\Desktop\\Tom\\INLA code\\")
+##################################################
+###spatio-temporal mapping with space-time interaction (type 1 interaction)
+
+# Load shapefile
+shp<-rgdal::readOGR(dsn = "Layer\\雙北村里_WGS84.shp", encoding="UTF-8")
+shp@data$COUNTYNAME <- iconv(shp@data$COUNTYNAME, from = "UTF-8", to="UTF-8")
+shp@data$TOWNNAME <- iconv(shp@data$TOWNNAME, from = "UTF-8", to="UTF-8")
+shp@data$VILLNAME <- iconv(shp@data$TOWNNAME, from = "UTF-8", to="UTF-8")
+shp@data$NOTE<- iconv(shp@data$TOWNNAME, from = "UTF-8", to="UTF-8")
+
+##INLA neighbor graph
+Taiwan.adj = poly2nb(pl =shp ,queen = T)
+nb2INLA(file="Taiwan.graph",nb=Taiwan.adj)
+Taiwan.adj.path = paste0(getwd(),"/","Taiwan.graph")
+
+#DATA region_id AND MAP need same region ID
+data<-data.frame(fread("Village1.csv"))
+data<-data[order(data$COUNTY,data$TOWN,data$VILLAGE,data$Date),]
+data$VILLCODE<-as.character(data$VILLCODE)
+
+##order shp and data 
+id_locate1<-NULL
+for(i in 1:length(shp@data$VILLCODE)){
+  id_locate<-which(shp@data$VILLCODE[i]==data$VILLCODE)
+  id_locate1<-c(id_locate1,id_locate)
+  
+}
+data<-data[id_locate1,]
+
+#region_id setting
+data$region_id<-rep(1:1488,each=42)
+
+##intergar setting
+#cases
+data$cases<-as.integer(data$cases)
+#time_id
+data$time_id<-as.integer(as.factor(data$Date))
+#time_id2
+data$time_id2<-data$time_id
+#Formula
+data$P_CNT<-as.numeric(data$P_CNT)
+
+data<-data.frame(data %>%
+  group_by(locate_town) %>%
+  mutate(case_lag1=lag(cases),case_lag2=lag(lag(cases)),case_lag3=lag(lag(lag(cases)))))
+#lag1 data fill 0
+data[is.na(data$case_lag1),"case_lag1"]<-0
+#累積前三天個案
+
+data<-data.frame(data %>%
+  group_by(VILLCODE,Date)%>%
+  mutate(accumulate3=sum(case_lag1,case_lag2,case_lag3,na.rm = T)))
+
+
+#region_time_id
+data$region_time_id = seq(1,nrow(data))
+
+#老化 人口密度 Q4 Q3 Q2 v.s. Q1
+summary(data$Density)
+summary(data$Aging_index)
+data$Density_class[data$Density>5984.18]=1
+data$Density_class[data$Density<=5984.18]=0
+data$Aging_index_class[data$Aging_index>119.56]=1
+data$Aging_index_class[data$Aging_index<=119.56]=0
+
+
+#case_lag1
+formula.ST1 = cases ~ case_lag1+
+  in_deg_18+in_deg_22+in_deg_30+in_deg_60+
+  out_deg_18+out_deg_22+out_deg_30+out_deg_60+
+  政府機關+學校+醫療保健+文化設施+公園綠地廣場+商業+純住宅+混合使用住宅+製造業+
+  Density_class+Aging_index_class+
+  f(region_id,model="bym",graph=Taiwan.adj.path,hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.1)),prec.spatial=list(prior="loggamma",param=c(1,0.1)))) +
+  f(time_id, model="iid",hyper=list(prec=list(prior="loggamma",param=c(1,0.1)))) +
+  f(time_id2, model="rw1",hyper=list(prec=list(prior="loggamma",param=c(1,0.1)))) +
+  f(region_time_id, model="iid",hyper=list(prec=list(prior="loggamma",param=c(1,0.1))))
+#accumulate3
+formula.ST2 = cases ~ accumulate3+
+  in_deg_18+in_deg_22+in_deg_30+in_deg_60+
+  out_deg_18+out_deg_22+out_deg_30+out_deg_60+
+  政府機關+學校+醫療保健+文化設施+公園綠地廣場+商業+純住宅+混合使用住宅+製造業+
+  Density_class+Aging_index_class+
+  f(region_id,model="bym",graph=Taiwan.adj.path,hyper=list(prec.unstruct=list(prior="loggamma",param=c(1,0.1)),prec.spatial=list(prior="loggamma",param=c(1,0.1)))) +
+  f(time_id, model="iid",hyper=list(prec=list(prior="loggamma",param=c(1,0.1)))) +
+  f(time_id2, model="rw1",hyper=list(prec=list(prior="loggamma",param=c(1,0.1)))) +
+  f(region_time_id, model="iid",hyper=list(prec=list(prior="loggamma",param=c(1,0.1))))
+
+model1= inla(formula.ST1,family="zeroinflatedpoisson0",data=data,offset=log(P_CNT),control.compute=list(dic=TRUE)) 
+model2= inla(formula.ST2,family="zeroinflatedpoisson0",data=data,offset=log(P_CNT),control.compute=list(dic=TRUE)) 
+#OR ratio
+round(exp(model1$summary.fixed[,c("mean","0.025quant","0.975quant")]),digits = 3)
+round(exp(model2$summary.fixed[,c("mean","0.025quant","0.975quant")]),digits = 3)
