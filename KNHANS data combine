@@ -1,0 +1,126 @@
+setwd("C:\\Users\\user\\Desktop\\KNHANS\\")
+library(haven)
+library(dplyr)
+data13<-data.frame(read_sas("HN13_ALL.sas7bdat"))
+data14<-data.frame(read_sas("HN14_ALL.sas7bdat"))
+data15<-data.frame(read_sas("HN15_ALL.sas7bdat"))
+data16<-data.frame(read_sas("HN16_ALL.sas7bdat"))
+names(data)
+
+f<-function(data){
+  count<-data %>%
+    group_by(class)%>%
+    summarize(n=n())
+  summary<-data %>%
+    group_by(class)%>%
+    select(everything()) %>%
+    summarise_all(list(missing=~round(sum(is.na(.))*100/n(),2)))
+  return(list(count,summary))
+}
+		
+
+data13<-data13[,c("ID","wt_ntr","psu","kstrata","sex","age","age_month","region",
+                    "HE_BMI","Y_BTH_WT","Y_MTM_YN","Y_MTM_S1","Y_MTM_S2",
+                    "Y_MTM_D1","Y_MTM_D2","Y_FM_YN","Y_FM_S1","Y_FM_S2",
+                    "Y_FM_D1","Y_FM_D2","Y_MLK_ST","BP8","EC_pedu_1","EC_pedu_2",
+                    "allownc","house","live_t","ainc","BO1","BO2_1","BO3_01",
+                    "BO3_03","BO3_14","BO3_07","BO3_09","BO3_10","BO3_11",
+                    "HE_WBC","HE_RBC","HE_Bplt","HE_ast","HE_alt","HE_sbp1","HE_sbp2",
+                    "HE_sbp3","HE_sbp","HE_dbp1","HE_dbp2","HE_dbp3","HE_dbp",
+                    "HE_chol","HE_HDL_st2","HE_LDL_drct","HE_TG","HE_glu","HE_HbA1c",
+                    "HE_fvc","HE_fvcp","HE_fev1","HE_fev1p","HE_fev1fvc","HE_pef")]
+data14<-data14[,c("ID","wt_ntr","psu","kstrata","sex","age","age_month","region",
+                    "HE_BMI","Y_BTH_WT","Y_MTM_YN","Y_MTM_S1","Y_MTM_S2",
+                    "Y_MTM_D1","Y_MTM_D2","Y_FM_YN","Y_FM_S1","Y_FM_S2",
+                    "Y_FM_D1","Y_FM_D2","Y_MLK_ST","BP8","EC_pedu_1","EC_pedu_2",
+                    "allownc","house","live_t","ainc","BO1","BO2_1","BO3_01",
+                    "BO3_03","BO3_14","BO3_07","BO3_09","BO3_10","BO3_11",
+                    "HE_WBC","HE_RBC","HE_Bplt","HE_ast","HE_alt","HE_sbp1","HE_sbp2",
+                    "HE_sbp3","HE_sbp","HE_dbp1","HE_dbp2","HE_dbp3","HE_dbp",
+                    "HE_chol","HE_HDL_st2","HE_LDL_drct","HE_TG","HE_glu","HE_HbA1c",
+                    "HE_fvc","HE_fvcp","HE_fev1","HE_fev1p","HE_fev1fvc","HE_pef")]
+
+data15<-data15[,c("ID","wt_ntr","psu","kstrata","sex","age","age_month","region",
+                    "HE_BMI","Y_BTH_WT","Y_MTM_YN","Y_MTM_S1","Y_MTM_S2",
+                    "Y_MTM_D1","Y_MTM_D2","Y_FM_YN","Y_FM_S1","Y_FM_S2",
+                    "Y_FM_D1","Y_FM_D2","Y_MLK_ST","BP8","EC_pedu_1","EC_pedu_2",
+                    "allownc","house","live_t","ainc","BO1","BO2_1","BO3_01",
+                    "BO3_03","BO3_14","BO3_07","BO3_09","BO3_10","BO3_11",
+                    "HE_WBC","HE_RBC","HE_Bplt","HE_ast","HE_alt","HE_sbp1","HE_sbp2",
+                    "HE_sbp3","HE_sbp","HE_dbp1","HE_dbp2","HE_dbp3","HE_dbp",
+                    "HE_chol","HE_HDL_st2","HE_LDL_drct","HE_TG","HE_glu","HE_HbA1c",
+                    "HE_fvc","HE_fvcp","HE_fev1","HE_fev1p","HE_fev1fvc","HE_pef")]
+
+
+
+data16<-data16[,c("ID","wt_ntr","psu","kstrata","sex","age","age_month","region",
+                    "HE_BMI","Y_BTH_WT","Y_MTM_YN","Y_MTM_S1","Y_MTM_S2",
+                    "Y_MTM_D1","Y_MTM_D2","Y_FM_YN","Y_FM_S1","Y_FM_S2",
+                    "Y_FM_D1","Y_FM_D2","Y_MLK_ST","BP16_11","BP16_12","BP16_13",
+                    "BP16_14","BP16_21","BP16_22","BP16_23","BP16_24","Total_slp_wk",
+                    "Total_slp_wd","EC_pedu_1","EC_pedu_2",
+                    "allownc","house","live_t","ainc","BO1","BO2_1","BO3_01",
+                    "BO3_03","BO3_14","BO3_07","BO3_09","BO3_10","BO3_11",
+                    "HE_WBC","HE_RBC","HE_Bplt","HE_ast","HE_alt","HE_sbp1","HE_sbp2",
+                    "HE_sbp3","HE_sbp","HE_dbp1","HE_dbp2","HE_dbp3","HE_dbp",
+                    "HE_chol","HE_HDL_st2","HE_LDL_drct","HE_TG","HE_glu","HE_HbA1c",
+                    "HE_fvc","HE_fvcp","HE_fev1","HE_fev1p","HE_fev1fvc","HE_pef")]
+##rbind mixed version
+data<-bind_rows(data13,data14,data15,data16)
+##delete NSW missing
+data<-data[!is.na(data$wt_ntr),]
+#AGE two month-6 7-12 13-18
+sum(is.na(data$age))
+data$class[!is.na(data$age_month)  & (data$age_month>=2 | data$age<6)]<-"1"
+data$class[data$age>=7 & data$age<13]<-"2"
+data$class[data$age>=13 & data$age<18]<-"3"
+data<-data[!is.na(data$class),]
+
+table(data$class)
+
+##combine sleep 
+data$sleep<-NA
+data$sleep[!is.na(data$BP8)]<-1
+data$sleep[!is.na(data$Total_slp_wk) & !is.na(data$Total_slp_wd)]<-1
+
+##生命早期經歷----
+data$Y_MTM_YN[!is.na(data$Y_MTM_YN) & (data$Y_MTM_YN==9 | data$Y_MTM_YN==8)] <-NA
+data$Y_MTM_S1[!is.na(data$Y_MTM_S1) & (data$Y_MTM_S1==999 | data$Y_MTM_S1==888)] <-NA
+data$Y_MTM_S2[!is.na(data$Y_MTM_S2) & (data$Y_MTM_S2==999 | data$Y_MTM_S2==888)] <-NA
+data$Y_MTM_D1[!is.na(data$Y_MTM_D1) & (data$Y_MTM_D1==999 | data$Y_MTM_D1==888)] <-NA
+data$Y_MTM_D2[!is.na(data$Y_MTM_D2) & (data$Y_MTM_D2==999 | data$Y_MTM_D2==888)] <-NA
+data$Y_FM_YN[!is.na(data$Y_FM_YN) & (data$Y_FM_YN==9 | data$Y_FM_YN==8)] <-NA
+data$Y_FM_S1[!is.na(data$Y_FM_S1) & (data$Y_FM_S1==999 | data$Y_FM_S1==888)] <-NA
+data$Y_FM_S2[!is.na(data$Y_FM_S2) & (data$Y_FM_S2==999 | data$Y_FM_S2==888)] <-NA
+data$Y_FM_D1[!is.na(data$Y_FM_D1) & (data$Y_FM_D1==999 | data$Y_FM_D1==888)] <-NA
+data$Y_FM_D2[!is.na(data$Y_FM_D2) & (data$Y_FM_D2==999 | data$Y_FM_D2==888)] <-NA
+data$Y_MLK_ST[!is.na(data$Y_MLK_ST) & (data$Y_MLK_ST==999 | data$Y_MLK_ST==888)] <-NA
+
+##健康行為----
+data$BP8[!is.na(data$BP8) & (data$BP8==99 | data$BP8==88)] <-NA
+data$Total_slp_wk[!is.na(data$Total_slp_wk) & (data$Total_slp_wk==9999 | data$Total_slp_wk==8888)] <-NA
+data$Total_slp_wd[!is.na(data$Total_slp_wd) & (data$Total_slp_wd==9999 | data$Total_slp_wd==8888)] <-NA
+
+##社經狀況----
+data$EC_pedu_1[!is.na(data$EC_pedu_1) & (data$EC_pedu_1==99 | data$EC_pedu_1==88)] <-NA
+data$EC_pedu_2[!is.na(data$EC_pedu_2) & (data$EC_pedu_2==99 | data$EC_pedu_2==88)] <-NA
+data$allownc[!is.na(data$allownc) & (data$allownc==99)] <-NA
+data$house[!is.na(data$house) & (data$house==9)] <-NA
+data$live_t[!is.na(data$live_t) & (data$live_t==9)] <-NA
+
+##照護者健康觀念----
+data$BO1[!is.na(data$BO1) & (data$BO1==99 | data$BO1==88)] <-NA
+data$BO2_1[!is.na(data$BO2_1) & (data$BO2_1==99 | data$BO2_1==88)] <-NA
+data$BO3_01[!is.na(data$BO3_01) & (data$BO3_01==99 | data$BO3_01==88)] <-NA
+data$BO3_03[!is.na(data$BO3_03) & (data$BO3_03==99 | data$BO3_03==88)] <-NA
+data$BO3_14[!is.na(data$BO3_14) & (data$BO3_14==99 | data$BO3_14==88)] <-NA
+data$BO3_07[!is.na(data$BO3_07) & (data$BO3_07==99 | data$BO3_07==88)] <-NA
+data$BO3_09[!is.na(data$BO3_09) & (data$BO3_09==99 | data$BO3_09==88)] <-NA
+data$BO3_10[!is.na(data$BO3_10) & (data$BO3_10==99 | data$BO3_10==88)] <-NA
+
+names(data)
+
+##VARIABLE adjusted
+f(data)
+View(f(data)[[2]])
+
