@@ -1,0 +1,308 @@
+libname twb "F:\H107217_1\tom_TWBdata\TWB_NHIRD";
+libname ID " F:\H107217_1\tom_TWBdata\TWB_Data";
+libname match" F:\H107217_1\tom_TWBdata\TWB_matching ";
+libname severe "F:\H107217_1\tom_Asthma_Severe";
+libname data "F:\H107217_1\tom_TWBdata\TWB_NHIRD";
+
+data  NHIRD;
+	set  data.qc_nhi_new /*放門診+門診醫令+住院+住院醫令每年串起來的檔案*/;
+	asthma_code=0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "493") |   substr(ICD9CM_2,1,3) in ("493")  |  substr(ICD9CM_3,1,3) in ( "493") | substr( ICD9CM_4,1,3)  in ( "493")
+		|  substr( ICD9CM_5,1,3)  in ( "493") ) then
+		asthma_code=1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J45") |   substr(ICD9CM_2,1,3) in ("J45")  |  substr(ICD9CM_3,1,3) in ("J45")|  substr( ICD9CM_4,1,3)  in ( "J45")
+		|  substr( ICD9CM_5,1,3)  in ( "J45")) then
+		asthma_code=1;
+	copd_code=0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ("491","492","496") |   substr(ICD9CM_2,1,3) in ("491","492","496")  |  substr(ICD9CM_3,1,3) in ("491","492", "496") |substr( ICD9CM_4,1,3)  in ("491","492","496") |substr( ICD9CM_5,1,3)  in ("491","492","496") ) then
+		copd_code=1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "J44") |   substr(ICD9CM_2,1,4) in ("J44")  |  substr(ICD9CM_3,1,4) in ( "J44")  |   substr(ICD9CM_4,1,4) in ("J44") |   substr(ICD9CM_5,1,4) in ("J44")) then
+		copd_code=1;
+	Depression_code=0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_2,1,4)  in ( "3004","2962","2963") 
+		|  substr( ICD9CM_3,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_4,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_5,1,4)  in ( "3004","2962","2963") |  substr( ICD9CM_1,1,3)  in ( "311") |  substr( ICD9CM_2,1,3)  in ( "311")   |  substr( ICD9CM_3,1,3)  in ( "311")
+		|  substr( ICD9CM_4,1,3)  in ( "311")|  substr( ICD9CM_5,1,3)  in ( "311")) then
+		Depression_code=1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "F341","F329","F339") |   substr(ICD9CM_2,1,4) in ("F341","F329","F339")  |  substr(ICD9CM_3,1,4) in ( "F341","F329","F339") |  substr(ICD9CM_4,1,4) in ( "F341","F329","F339")|  substr(ICD9CM_5,1,4) in ( "F341","F329","F339")) then
+		Depression_code=1;
+	bd_code=0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,4)  in ( "2967") |   substr(ICD9CM_2,1,4) in ("2967")  |  substr(ICD9CM_3,1,4) in ( "2967") |  substr(ICD9CM_4,1,4) in ( "2967") |  substr(ICD9CM_5,1,4) in ( "2967")  ) then
+		bd_code=1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "F319") |   substr(ICD9CM_2,1,4) in ("F319")  |  substr(ICD9CM_3,1,4) in ( "F319")|  substr(ICD9CM_4,1,4) in ( "F319")|  substr(ICD9CM_5,1,4) in ( "F319") ) then
+		bd_code=1;
+	OSA_code=0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,5)  in ( "32723") |   substr(ICD9CM_2,1,5) in ("32723")  |  substr(ICD9CM_3,1,5) in ( "32723") |  substr(ICD9CM_4,1,5) in ( "32723")|  substr(ICD9CM_5,1,5) in ( "32723")) then
+		OSA_code=1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,5)  in ( "G4733") |   substr(ICD9CM_2,1,5) in ("G4733")  |  substr(ICD9CM_3,1,5) in ( "G4733")  |  substr(ICD9CM_4,1,5) in ( "G4733")  |  substr(ICD9CM_5,1,5) in ( "G4733") ) then
+		OSA_code=1;
+	GERD_code=0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,5)  in ( "53081") |   substr(ICD9CM_2,1,5) in ("53081")  |  substr(ICD9CM_3,1,5) in ( "53081") |  substr(ICD9CM_4,1,5) in ( "53081") |  substr(ICD9CM_5,1,5) in ( "53081") ) then
+		GERD_code=1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,4)  in ( "K219") |   substr(ICD9CM_2,1,4) in ("K219")  |  substr(ICD9CM_3,1,4) in ( "K219") |  substr(ICD9CM_4,1,4) in ( "K219") |  substr(ICD9CM_5,1,4) in ( "K219")) then
+		GERD_code=1;
+
+	/* allergic rhinitis */
+	AR_code =0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "477") |   substr(ICD9CM_2,1,3) in ("477")  |  substr(ICD9CM_3,1,3) in ( "477") |  substr(ICD9CM_4,1,3) in ( "477") |  substr(ICD9CM_5,1,3) in ( "477") ) then
+		AR_code =1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J30") |   substr(ICD9CM_2,1,3) in ("J30")  |  substr(ICD9CM_3,1,3) in ( "J30") |  substr(ICD9CM_4,1,3) in ( "J30") |  substr(ICD9CM_5,1,3) in ( "J30")) then
+		AR_code =1;
+
+	/* Nasal polyposis(ICD9 471 ICD10 J33) */
+	NP_code =0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "471") |   substr(ICD9CM_2,1,3) in ("471")  |  substr(ICD9CM_3,1,3) in ( "471") |  substr(ICD9CM_4,1,3) in ( "471") |  substr(ICD9CM_5,1,3) in ( "471") ) then
+		NP_code =1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J33") |   substr(ICD9CM_2,1,3) in ("J33")  |  substr(ICD9CM_3,1,3) in ( "J33") |  substr(ICD9CM_4,1,3) in ( "J33") |  substr(ICD9CM_5,1,3) in ( "J33")) then
+		NP_code =1;
+
+	/*Chronic sinusitis(ICD9 473 ICD10 J32) */
+	CS_code =0;
+
+	If   input( substr(FEE_YM,1,4),4.)<=2015 &  ( substr( ICD9CM_1,1,3)  in ( "473") |   substr(ICD9CM_2,1,3) in ("473")  |  substr(ICD9CM_3,1,3) in ( "473") |  substr(ICD9CM_4,1,3) in ( "473") |  substr(ICD9CM_5,1,3) in ( "473") ) then
+		CS_code =1;
+
+	If   input( substr(FEE_YM,1,4),4.)>2015 &  ( substr( ICD9CM_1,1,3)  in ( "J32") |   substr(ICD9CM_2,1,3) in ("J32")  |  substr(ICD9CM_3,1,3) in ( "J32") |  substr(ICD9CM_4,1,3) in ( "J32") |  substr(ICD9CM_5,1,3) in ( "J32")) then
+		CS_code =1;
+
+	If FUNC_DATE not=" " then
+		indate1=FUNC_DATE;
+
+	If IN_DATE not=" " then
+		indate1= IN_DATE;
+ run;
+/* Asthma控制-肥胖與因氣喘所致的醫療服務利用之關係*/
+
+
+/*抓調查前後一年的筆數 總共2年*/
+data survey;
+	set NHIRD;
+	year=substr(indate1,1,4);
+	month=substr(indate1,5,2);
+	day=substr(indate1,7,2);
+	date=MDY(month,day,year);
+	pre_surveyday=intnx('year', SURVEY_DATE,-1,'same');
+	post_surveyday= intnx('year', SURVEY_DATE, 1,'same');
+	format pre_surveyday post_surveyday date  yymmdd10.;
+	drop year month day;
+run;
+proc SQL;
+	create table ASL as
+		select*
+	from survey
+		where  date >= pre_surveyday  and    date <= post_surveyday;
+quit;
+
+/*Control mathing data*/
+data match_control_ID;
+	set Severe.match_control_1;
+	keep Release_no control_people;
+run;
+
+
+/*keep Control ID and Severe ID*/
+/*ASL in control and severe sas code*/
+proc sql;
+	create table Control_medical_visits as 
+	select *
+	from ASL as a right join match_control_ID as b
+	on a.Release_no=b.release_no;
+
+quit;
+
+/*氣喘藥物代碼*/
+/*氣喘 drug*/
+data WORK.Asthma_DRUG;
+	%let _EFIERR_ = 0; /* set the ERROR detection macro variable */
+	infile 'E:\H107217\Tom\before\20220124\氣喘用藥.csv' delimiter = ',' MISSOVER DSD lrecl=32767 firstobs=2;
+	informat Drug_Code $10.;
+	informat name $50.;
+	informat Brand_Name $9.;
+	informat type $8.;
+	informat DDD best12.;
+	format Drug_Code $10.;
+	format name $50.;
+	format Brand_Name $9.;
+	format type $8.;
+	format DDD best12.;
+	input
+		Drug_Code  $
+		name  $
+		Brand_Name  $
+		type  $
+		DDD  
+	;
+
+	if _ERROR_ then call symputx('_EFIERR_',1);  /* set ERROR detection macro variable */
+run;
+
+proc sql noprint;
+	select quote(trim(DRUG_code)) into:DRUG_all separated by "," from Asthma_DRUG;
+quit;
+/*Control*/
+data Control_Asthma_drug;
+	set Control_medical_visits; 
+	if DRUG_NO in (&DRUG_all.) then output;
+run;
+
+/*將氣喘藥物其他資訊納入*/
+proc sql;
+	create table Control_Asthma_drug_type as 
+	select distinct Release_No,type,control_people
+	from Control_Asthma_drug as a left join Asthma_DRUG as b
+	on a.DRUG_NO=b.DRUG_code
+	group by Release_No,type;
+
+quit;
+
+data type1 type2 type3;
+	set Control_Asthma_drug_type;
+	if type="口服" then output type1;
+	if type="吸入" then output type2;
+	if type="注射" then output type3;
+run;
+
+proc sort data=type1;
+by Release_No; run;
+proc sort data=type2;
+by Release_No; run;
+proc sort data=type3;
+by Release_No; run;
+
+data type11;
+	set type1;
+	by Release_No;
+	type1=1;
+	keep Release_No type1;
+	if first.Release_No then output;
+run;
+
+data type21;
+	set type2;
+	by Release_No;
+	type2=1;
+	keep Release_No type2;
+	if first.Release_No then output;
+run;
+
+data type31;
+	set type3;
+	by Release_No;
+	type3=1;
+	keep Release_No type3;
+	if first.Release_No then output;
+run;
+
+
+proc sql;
+	create table match_control as 
+	select *
+	from Severe.match_control_1 as a left join type11 as b
+	on a.Release_No=b.Release_No;
+
+	create table match_control1 as 
+	select *
+	from match_control as a left join type21 as b
+	on a.Release_No=b.Release_No;
+
+	create table match_control2 as 
+	select *
+	from match_control1 as a left join type31 as b
+	on a.Release_No=b.Release_No;
+
+quit;
+
+data match_control3;
+	set match_control2;
+	if type1=. then type1=0;
+	if type2=. then type2=0;
+	if type3=. then type3=0;
+run;
+
+
+/*針對1360人查詢氣喘藥物使用狀態 (口服 吸入 注射) 查詢一下type 設定方式*/
+/*type Brand.name*/
+proc freq data=match_control3;
+	table type1 *control_people/chisq;
+run;
+proc freq data=match_control3;
+	table type2 *control_people/chisq;
+run;
+proc freq data=match_control3;
+	table type3 *control_people/chisq;
+run;
+
+
+
+/*醫療服務利用*/
+
+/*Control data Summary*/
+
+/*連續變項*/
+
+/*次數確認*/
+proc means data= Severe.match_control_1 P5 median P95 ;
+	/*class control_people; 整體或分層下的中位數數量*/
+	var  out_count  quick_count emer_count out_count_all quick_count_all emer_count_all ;
+run;
+proc npar1way data=Severe.match_control_1 ;
+   class control_people; /*整體或分層下的中位數檢定*/
+   var out_count  quick_count emer_count out_count_all quick_count_all emer_count_all ;
+run;
+
+
+libname twb "F:\H107217_1\tom_TWBdata\TWB_NHIRD";
+/*QC ID*/
+libname ID " F:\H107217_1\tom_TWBdata\TWB_Data";
+libname match" F:\H107217_1\tom_TWBdata\TWB_matching ";
+libname severe "F:\H107217_1\tom_Asthma_Severe";
+
+/*Control data Summary*/
+
+data control_data;
+	set Severe.match_control_1;
+	
+	if class_bmi=1 and wc_hei_class=0 then BMI_WHtR=1;
+	if class_bmi=2 and wc_hei_class=0 then BMI_WHtR=2;
+	if class_bmi=3 and wc_hei_class=0 then BMI_WHtR=3;
+	if class_bmi=4 and wc_hei_class=0 then BMI_WHtR=4;
+	if class_bmi=1 and wc_hei_class=1 then BMI_WHtR=5;
+	if class_bmi=2 and wc_hei_class=1 then BMI_WHtR=6;
+	if class_bmi=3 and wc_hei_class=1 then BMI_WHtR=7;
+	if class_bmi=4 and wc_hei_class=1 then BMI_WHtR=8;
+	
+run;	
+	
+/*table2 */
+proc logistic data=  control_data ;   
+strata X_MatchID_1;   
+class  class_bmi(ref="2")  asthma_parent (ref="0")   / param=ref;  
+model control_people(event='1')= class_bmi asthma_parent    ;
+run;
+proc logistic data=  control_data ;   
+strata X_MatchID_1;   
+class  wc_hei_class(ref="0")  asthma_parent (ref="0")   / param=ref;  
+model control_people(event='1')= wc_hei_class asthma_parent    ;
+run;
+/*table3 */
+proc logistic data=  control_data ;   
+strata X_MatchID_1;   
+class  BMI_WHtR(ref="2")  asthma_parent (ref="0")   / param=ref;  
+model control_people(event='1')= BMI_WHtR asthma_parent    ;
+run;
+
