@@ -1,0 +1,378 @@
+
+setwd("C:\\Users\\奕碁\\Desktop\\NHANES\\")
+#n=8370 
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(data.table)
+data<-read.table("rawdata.csv",header = T,sep=",")
+
+
+#infant n=3684 childhood n=2592 teenagers n=2094
+# infant<-data[data$class==1,]
+# childhood<-data[data$class==2,]
+# teenagers<-data[data$class==3,]
+
+#step2 Data clean and spilt child childer teenager
+
+#delete BMI missing n=411
+
+child<-data[data$class==1,]
+##child data flow----
+child<-data.table(child)
+missing_values <- child %>% 
+  summarize_all(funs(sum(is.na(.))/n()))
+missing_values <- gather(missing_values, key="feature", value="missing_pct")
+View(missing_values[missing_values$missing_pct>0.05,])
+##孩童年齡換算 設定為年
+child<-data.frame(child)
+child$Age<-child$RIDAGEYR
+##家庭人數 DMDFMSIZ
+#https://www.statista.com/statistics/183657/average-size-of-a-family-in-the-us/
+
+child$familysize<-ifelse(child$DMDFMSIZ<3.13,1,2)
+table(child$familysize)
+
+##參考人的教育水平Ref_education  國中小 高中、GED 大學大專
+child$Ref_education<-NA
+child$Ref_education<-ifelse((!is.na(child$DMDHREDU) & child$DMDHREDU==1 | child$DMDHREDU==2 ),1,
+                            ifelse((!is.na(child$DMDHREDU) & child$DMDHREDU==4 | child$DMDHREDU==5 ),3,2))
+table(child$Ref_education)
+
+##參考人婚姻狀況 DMDHRMAR 
+##孩童母親年齡 ECD010 
+##孩童母親抽菸與否ECD020
+##孩童出生體重 ECD070A  
+
+##是否曾母乳餵養 配方奶粉 feed  1:混合 2.配方 3.母乳
+child$feed<-NA
+child$feed<-ifelse((!is.na(child$DBQ010) & child$DBQ010==1) &
+                     (!is.na(child$DBD041) & child$DBD041>0),1,
+                   ifelse((!is.na(child$DBQ010) & child$DBQ010==2) &
+                            (!is.na(child$DBD041) & child$DBD041>0),2,3))
+sum(is.na(child$feed))
+##是否有餵食其他食物 計算年齡前的  other_feed 不需要
+# sum(is.na(child$DBD055))
+# child$other_feed[!is.na(child$DBD055) & child$DBD055>0]<-1
+# child$other_feed[!is.na(child$DBD055) & child$DBD055==0] <-0
+# table(child$other_feed)
+
+##看電視及電腦的使用時間 
+##https://babygooroo.com/articles/at-what-age-can-children-watch-tv
+##設定2歲以下小孩 被禁止看電視 set for 8:沒有在工作放學使用
+# child[is.na(child$PAQ710) & child$Age<=2,"PAQ710"]<-8
+# child[is.na(child$PAQ715) & child$Age<=2,"PAQ715"]<-8
+child[!is.na(child$PAQ710) & child$PAQ710==8 , "PAQ710_set"]<-0
+child[!is.na(child$PAQ710) & child$PAQ710==0 , "PAQ710_set"]<-0.5
+child[!is.na(child$PAQ710) & child$PAQ710==1 , "PAQ710_set"]<-1
+child[!is.na(child$PAQ710) & child$PAQ710==2 , "PAQ710_set"]<-2
+child[!is.na(child$PAQ710) & child$PAQ710==3 , "PAQ710_set"]<-3
+child[!is.na(child$PAQ710) & child$PAQ710==4 , "PAQ710_set"]<-4
+child[!is.na(child$PAQ710) & child$PAQ710==5 , "PAQ710_set"]<-5
+
+child[!is.na(child$PAQ715) & child$PAQ715==8 , "PAQ715_set"]<-0
+child[!is.na(child$PAQ715) & child$PAQ715==0 , "PAQ715_set"]<-0.5
+child[!is.na(child$PAQ715) & child$PAQ715==1 , "PAQ715_set"]<-1
+child[!is.na(child$PAQ715) & child$PAQ715==2 , "PAQ715_set"]<-2
+child[!is.na(child$PAQ715) & child$PAQ715==3 , "PAQ715_set"]<-3
+child[!is.na(child$PAQ715) & child$PAQ715==4 , "PAQ715_set"]<-4
+child[!is.na(child$PAQ715) & child$PAQ715==5 , "PAQ715_set"]<-5
+
+child$PAQ<-child$PAQ710_set+child$PAQ715_set
+child$ST[!is.na(child$PAQ) & child$PAQ <=2] <-1
+child$ST[!is.na(child$PAQ) & child$PAQ > 2] <-2
+
+
+##飲食 no consider
+##家庭每月貧困水平類別  INDFMMPC
+##房間數量 HOD050
+##家庭消費情況
+#DMDHRGND 參考人性別
+child_new<-child[,c("SEQN","WTINT2YR","SDMVPSU","SDMVSTRA",
+                    "Age","RIDRETH3","familysize","DMDFMSIZ","RIAGENDR",
+                    "Ref_education","DMDHRMAR","BMXBMI","ECD010","ECQ020",
+                    "ECD070A","feed","PAQ710","PAQ715","ST",
+                    "INDFMMPC","HOD050","HOQ065","CBD070","CBD090","CBD110",
+                    "CBD120","CBD130")]
+
+# summary<-child_new %>%
+#   summarise_all(list(count=~round(n(),digits = 0),mean=~round(mean(.,na.rm=T),digits = 2),sd=~round(sd(.,na.rm=T),2)))
+# a<-data.frame(matrix(unlist(summary),ncol=length(child_new),nrow = 3,byrow = T))
+# names(a)<-names(child_new)
+# rownames(a)<-c("N","mean","SD")
+# 
+# View(a)
+# sum<-d(child_new)
+
+#平均每人消費金額
+child_new$sm<-rowSums(child_new[,c("CBD070","CBD090","CBD110","CBD120","CBD130")])/child_new$DMDFMSIZ
+write.csv(child_new,"child.csv",na = "",row.names = F)
+
+##Analysis child data----
+library(dplyr)
+library(psych)
+library("haven")
+library("survey")
+library("jtools")
+library("weights")
+library("remotes")
+library("ggcorrplot")
+library("lavaan")
+setwd("C:\\Users\\奕碁\\Desktop\\NHANES\\")
+child<-read.table("child.csv",header = T,sep=",")
+
+# #Unweight summary
+# colMeans(child[,c("BMXBMI","Age","DMDFMSIZ","ECD010","ECD070A","HOD050")],na.rm = T)
+# colSd <- function(x, na.rm=TRUE) {
+#   if (na.rm) {
+#     n <- colSums(!is.na(x))
+#   } else {
+#     n <- nrow(x)
+#   }
+#   colVar <- colMeans(x*x, na.rm=na.rm) - (colMeans(x, na.rm=na.rm))^2
+#   return(sqrt(colVar * n/(n-1)))
+# }
+# colSd(child[,c("BMXBMI","Age","DMDFMSIZ","ECD010","ECD070A","HOD050")])
+# child$RIAGENDR
+# lapply(child[,c("RIAGENDR","RIDRETH3","Ref_education","ECQ020",
+#                 "feed","PAQ710","PAQ715","ST","INDFMMPC","HOQ065","DMDHRMAR")],
+#        function(x) prop.table(table(x))*100)
+# 
+# a<- child %>%
+#   summarize_all(funs((n()-sum(is.na(.)))/n()*100))
+# child<-data.frame(child)
+
+
+##category data fill with new variable or fill in large group
+##Ref_education 
+table(child$Ref_education)
+sum(is.na(child$Ref_education))
+##NA 與 其他組比較
+t.test(child$BMXBMI[is.na(child$Ref_education)],child$BMXBMI[!is.na(child$Ref_education) & child$Ref_education==3])
+t.test(child$BMXBMI[is.na(child$Ref_education)],child$BMXBMI[!is.na(child$Ref_education) & child$Ref_education==2])
+t.test(child$BMXBMI[is.na(child$Ref_education)],child$BMXBMI[!is.na(child$Ref_education) & child$Ref_education==1])
+
+#fill in 3 MAX n=77
+child$Ref_education[is.na(child$Ref_education)]<-3
+
+##INDFMMPC 
+table(child$INDFMMPC)
+sum(is.na(child$INDFMMPC))
+
+##NA 與 其他組比較
+t.test(child$BMXBMI[is.na(child$INDFMMPC)],child$BMXBMI[!is.na(child$INDFMMPC) & child$INDFMMPC==3])
+t.test(child$BMXBMI[is.na(child$INDFMMPC)],child$BMXBMI[!is.na(child$INDFMMPC) & child$INDFMMPC==2])
+t.test(child$BMXBMI[is.na(child$INDFMMPC)],child$BMXBMI[!is.na(child$INDFMMPC) & child$INDFMMPC==1])
+
+#fill in 1 MAX n=111
+child$INDFMMPC[is.na(child$INDFMMPC)]<-1
+
+#ECQ020 
+table(child$ECQ020)
+sum(is.na(child$ECQ020))
+##NA 與 其他組比較
+t.test(child$BMXBMI[is.na(child$ECQ020)],child$BMXBMI[!is.na(child$ECQ020) & child$ECQ020==2])
+t.test(child$BMXBMI[is.na(child$ECQ020)],child$BMXBMI[!is.na(child$ECQ020) & child$ECQ020==1])
+#fill in 2 max n=14
+child$ECQ020[is.na(child$ECQ020)]<-2
+
+#PAQ710 
+sum(is.na(child$PAQ710))
+table(child$PAQ710)
+
+#fill in 2 MAX n=2
+child$PAQ710[is.na(child$PAQ710)]<-2
+child$PAQ710[!is.na(child$PAQ710) & child$PAQ710==5]<-6
+child$PAQ710[!is.na(child$PAQ710) & child$PAQ710==4]<-5
+child$PAQ710[!is.na(child$PAQ710) & child$PAQ710==3]<-4
+child$PAQ710[!is.na(child$PAQ710) & child$PAQ710==2]<-3
+child$PAQ710[!is.na(child$PAQ710) & child$PAQ710==1]<-2
+child$PAQ710[!is.na(child$PAQ710) & child$PAQ710==0]<-1
+child$PAQ710[!is.na(child$PAQ710) & child$PAQ710==8]<-0
+
+#PAQ715 
+table(child$PAQ715)
+sum(is.na(child$PAQ715))
+#fill in  8 MAX n=1
+child$PAQ715[is.na(child$PAQ715)]<-8
+child$PAQ715[!is.na(child$PAQ715) & child$PAQ715==5]<-6
+child$PAQ715[!is.na(child$PAQ715) & child$PAQ715==4]<-5
+child$PAQ715[!is.na(child$PAQ715) & child$PAQ715==3]<-4
+child$PAQ715[!is.na(child$PAQ715) & child$PAQ715==2]<-3
+child$PAQ715[!is.na(child$PAQ715) & child$PAQ715==1]<-2
+child$PAQ715[!is.na(child$PAQ715) & child$PAQ715==0]<-1
+child$PAQ715[!is.na(child$PAQ715) & child$PAQ715==8]<-0
+
+#ST 
+child$PAQ<-child$PAQ710+child$PAQ715
+child$ST[!is.na(child$PAQ) & child$PAQ <=2] <-1
+child$ST[!is.na(child$PAQ) & child$PAQ > 2] <-2
+sum(is.na(child$ST))
+
+#DMDHRMAR 
+table(child$DMDHRMAR)
+sum(is.na(child$DMDHRMAR))
+
+##NA 與 其他組比較
+t.test(child$BMXBMI[is.na(child$DMDHRMAR)],child$BMXBMI[!is.na(child$DMDHRMAR) & child$DMDHRMAR==1])
+t.test(child$BMXBMI[is.na(child$DMDHRMAR)],child$BMXBMI[!is.na(child$DMDHRMAR) & child$DMDHRMAR==2])
+t.test(child$BMXBMI[is.na(child$DMDHRMAR)],child$BMXBMI[!is.na(child$DMDHRMAR) & child$DMDHRMAR==3])
+t.test(child$BMXBMI[is.na(child$DMDHRMAR)],child$BMXBMI[!is.na(child$DMDHRMAR) & child$DMDHRMAR==4])
+t.test(child$BMXBMI[is.na(child$DMDHRMAR)],child$BMXBMI[!is.na(child$DMDHRMAR) & child$DMDHRMAR==5])
+t.test(child$BMXBMI[is.na(child$DMDHRMAR)],child$BMXBMI[!is.na(child$DMDHRMAR) & child$DMDHRMAR==6])
+#fill in  1 MAX n=40
+child$DMDHRMAR[is.na(child$DMDHRMAR)]<-1
+
+##HOD050 
+child$NOR[!is.na(child$HOD050) & child$HOD050<=4]<-1
+child$NOR[!is.na(child$HOD050) & child$HOD050>4 & child$HOD050<=7]<-2
+child$NOR[!is.na(child$HOD050) & child$HOD050>7]<-3
+table(child$NOR)
+sum(is.na(child$NOR))
+t.test(child$BMXBMI[is.na(child$NOR)],child$BMXBMI[!is.na(child$NOR) & child$NOR==1])
+t.test(child$BMXBMI[is.na(child$NOR)],child$BMXBMI[!is.na(child$NOR) & child$NOR==2])
+t.test(child$BMXBMI[is.na(child$NOR)],child$BMXBMI[!is.na(child$NOR) & child$NOR==3])
+
+#fill in  2 MAX n=45
+child$NOR[is.na(child$NOR)]<-2
+#白人 REF
+child$RIDRETH3<-relevel(factor(child$RIDRETH3),ref = 3)
+variable<-model.matrix(~factor(RIDRETH3)+factor(feed)+factor(ST)+factor(DMDHRMAR),data = child)
+variable<-variable[,-1]
+colnames(variable)<-gsub("factor\\(","",colnames(variable))
+name<-gsub("\\)","",colnames(variable))
+variable<-data.frame(matrix(ncol=dim(variable)[2],nrow=dim(variable)[1],data=variable))
+names(variable)<-name
+
+##deal with category variable
+child1<-cbind(child,variable)
+names(child1)[c(7,9,10,12,13,14,15,17,18,28,30,31,32,33,34,35,36,37,38,39,40,41,42,43)]<-
+  c("Familysize","Female","REF_EDU","BMI","Childbirth",
+    "MOM_SMK","Birth_Weight","TV_time","PC_time","ACPP"
+    ,"Number_of_rooms",
+    "Mexican_American","Other_Hispanics","Non_Hispanic_black","Non_Hispanic_Asian","Other_races",
+    "Infant_formula","Breast_milk","Screen_time",
+    "Widowed","Divorce","Separation","Never_married","Couple_living_together")
+
+
+#Female
+child1$Female[child1$Female==1]<-0
+child1$Female[child1$Female==2]<-1
+
+
+##survey Weight
+child_nhc<-svydesign(id = ~SDMVPSU, weights  = ~WTINT2YR, strata = ~SDMVSTRA, 
+                     nest = TRUE, survey.lonely.psu = "adjust", data = child1)
+summary(child_nhc)
+
+
+##child summary---- name need change
+# svymean(~BMXBMI+Age+DMDFMSIZ+ECD010+ECD070A+HOD050
+#         +CBD070+CBD090+CBD110+CBD120+CBD130+sm,child_nhc,na.rm=T)
+# var<-c("DMDHRGND","RIDRETH3","Ref_education","ECQ020","feed","PAQ710","PAQ715","ST","INDFMMPC","HOQ065","DMDHRMAR")
+# a<-list()
+# for(i in 1:length(var)){
+#   a[[i]]<-prop.table(svytable(formula(paste0("~",var[i])),child_nhc))*100
+# }
+# a
+# ##plot
+# v <- svycor(~BMXBMI+Age+DMDFMSIZ+ECD010+ECD070A+HOD050
+#             +CBD070+CBD090+CBD110+CBD120+CBD130+sm
+#             , child_nhc,sig.stats=T,na.rm=T)
+# v$p.values
+# corrplot::corrplot(v[[1]])
+# svycor(~BMXBMI+Age,child_nhc,sig.stats=T,na.rm=T)
+# 
+# # ##pearson test
+# # var<-c("ECD010","ECD070A","HOD050","CBD070","CBD090","CBD110","CBD120","CBD130","sm")
+# # coef<-data.frame(Estimate=NA,Pvalue=NA)
+# # for(i in 1:length(var)){
+# #   coef[i,1]<-coef(summary(svyglm(formula(paste("BMXBMI~",var[i],sep="")),design=child_nhc)))[2,1]
+# #   coef[i,2]<-coef(summary(svyglm(formula(paste("BMXBMI~",var[i],sep="")),design=child_nhc)))[2,4]
+# #   row.names(coef)[i]<-var[i]
+# # }
+# # coef$Estimate<-round(coef$Estimate,digits = 3)
+# # coef$Pvalue<-round(coef$Pvalue,digits = 3)
+# # coef
+# # ttest
+# # DMDHRGND RIDRETH3 Ref_education feed PAQ710 PAQ715 ST INDFMMPC HOQ065 Ref_education DMDHRMAR ECQ020
+# 
+# var<-c("DMDHRGND","RIDRETH3","Ref_education","ECQ020","feed","PAQ710","PAQ715","ST","INDFMMPC","HOQ065","DMDHRMAR")
+# ##trend 
+# coef<-data.frame(Estimate=NA,Pvalue=NA)
+# for(i in 1:length(var)){
+#   coef[i,1]<-coef(summary(svyglm(formula(paste("BMXBMI~",var[i],sep="")),design=child_nhc)))[2,1]
+#   coef[i,2]<-coef(summary(svyglm(formula(paste("BMXBMI~",var[i],sep="")),design=child_nhc)))[2,4]
+#   row.names(coef)[i]<-var[i]
+# }
+# coef$Estimate<-round(coef$Estimate,digits = 3)
+# coef$Pvalue<-round(coef$Pvalue,digits = 3)
+# coef
+
+
+#child model setting----
+library(lavaan)
+library(lavaan.survey)
+library(semPlot)
+
+
+##sem model
+
+child_mb<-'
+  REF_EDU~Mexican_American+Other_Hispanics+Non_Hispanic_black+Non_Hispanic_Asian+Other_races
+  INDFMMPC~Mexican_American+Other_Hispanics+Non_Hispanic_black+Non_Hispanic_Asian+Other_races+REF_EDU
+  #MOM_SMK~REF_EDU
+  #Familysize~INDFMMPC
+  Screen_time~TV_time+PC_time+INDFMMPC
+  #Infant_formula~INDFMMPC+REF_EDU
+  #Breast_milk~INDFMMPC+REF_EDU
+  Childbirth~INDFMMPC+REF_EDU+Mexican_American+Other_Hispanics+Non_Hispanic_black+Non_Hispanic_Asian+Other_races
+  #Birth_Weight~MOM_SMK+REF_EDU
+  BMI~Age+Female+
+  Screen_time+Infant_formula+Breast_milk+Childbirth+Birth_Weight+
+  Mexican_American+Other_Hispanics+Non_Hispanic_black+Non_Hispanic_Asian+Other_races
+  '
+#model
+fitsem<-sem(child_mb,data=child1,estimator="ML",missing="fiml",fixed.x = F)
+varTable(fitsem)
+survey.fit <- lavaan.survey(lavaan.fit = fitsem, 
+                            child_nhc, 
+                            estimator="ML")
+summary(survey.fit,fit.measures=TRUE,standardized=TRUE,rsquare=TRUE)
+
+
+##SEMplot for all----
+x<-parameterEstimates(survey.fit,standardized=TRUE)
+x$est<-sprintf('%.2f',round(x$est,digits = 3))
+est<-ifelse(x$est=="0.00" ,"<0.01",x$est)
+est<-ifelse(x$est=="-0.00" ,">-0.01",x$est)
+p<-ifelse(x$pvalue<0.05,ifelse(x$pvalue<0.01,ifelse(x$pvalue<0.001,"***","**"),"*") ,"")
+l <- paste(est,p,sep="")
+
+##變數位置
+y<-semPlotModel(survey.fit)
+y@Vars$name
+m = matrix(nrow = 5, ncol = 13)
+m[1, ] = c( 0, 0, 0, 0, 0, 0, 6, 7, 8, 9,10, 0, 0)
+m[2, ] = c( 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1)
+m[3, ] = c( 0,11,12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+m[4, ] = c(13,14, 3,15,16, 0, 0, 0, 0, 4,17, 0, 0)
+m[5, ] = c(rep(0, 7), 5, rep(0, 5))
+
+semPaths(survey.fit,"est",ask=FALSE, intAtSide = TRUE, mar = c(1, 1, 1, 1),
+         layout = m,
+         nCharNodes=15,
+         intercepts = FALSE,fade=FALSE,
+         label.scale=T,exoCov = F,residuals = FALSE,
+         #sizeMan :字體  sizeMan2 :框框大小 asize: arrow size
+         sizeMan=4,sizeMan2=5,asize=1,label.cex=2,node.width = 1.5,
+         #箭頭上字體設定
+         edgeLabels = l[c(1:33)],
+         edge.width=TRUE,edge.label.position=.58, 
+         edge.label.cex = .9,
+         style = "lisrel",
+         edge.color = "black",
+         nodeLabels = c("REF\nEducation","Poverty\nindex","Screen\ntime","Maternal\nage", "BMI",
+                        "Mexican\nAmerican","Other\nHispanics","Non\nHispanics\nblack","Non\nHispanics\nAsian","Other races",
+                        "TV time","PC time","Age", "Girl","Formula\nFeeding","Breast\nfeeding","Birth\nWeight")
+         )
