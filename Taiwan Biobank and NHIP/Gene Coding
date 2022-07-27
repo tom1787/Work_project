@@ -1,0 +1,304 @@
+基因針對matching data 進行plink coding 賦予PRS score and plot some about gene plot
+
+GENE DATA conclude SNP 1-22, pheno(Asthma BMI WHtR WC), and Marker QC 
+Rcode:
+setwd("E:\\H107217_1\\tom_TWBdata\\TWB_matching\\plink\\")
+data<-read.table("TWBR10704-05.bim", header =F, as.is=T)
+data1<-data[data$V1>=1 & data$V1<=22,]
+write.table(data1,"snp_1_22.txt",row.names = F,append = F, quote = F, col.names = F)
+
+
+
+## ----製作 pheno about Asthma BMI WC WHtR ----
+work<-" E:\\H107217_1\\tom_TWBdata\\TWB_matching\\plink\\"
+x<-paste(work,"match_data.csv",sep = "")
+data<-read.csv(x)
+
+data$asthma_icdtwice[data$asthma_icdtwice==1]<-2
+data$asthma_icdtwice[data$asthma_icdtwice==0]<-1
+data$class_wc[data$class_wc==1]<-2
+data$class_wc[data$class_wc==0]<-1
+data$wc_hei_class[data$wc_hei_class==1]<-2
+data$wc_hei_class[data$wc_hei_class==0]<-1
+data1<-data[order(data$iid),]
+
+
+
+##---- Asthma BMI WHtR WC  pheno (排序製作)----
+
+Asthma<-data.frame(data1$iid,data1$iid,data1$asthma_icdtwice)
+BMI<-data.frame(data1$iid,data1$iid,data1$Bmi)
+WC_C<-data.frame(data1$iid,data1$iid,data1$BODY_WAISTLINE)
+WHtR_c<-data.frame(data1$iid,data1$iid,data1$wc_hei)
+
+
+write.table(asthma,paste(work,"\\pheno_Asthma.txt",sep = ""),quote=F,col.names=F,row.names=F)
+write.table(BMI,paste(work,"\\pheno_BMI.txt",sep = ""),quote=F,col.names=F,row.names=F)
+write.table(wc,paste(work,"\\pheno_WC.txt",sep = ""),quote=F,col.names=F,row.names=F)
+write.table(WHtR,paste(work,"f\\pheno_WHtR.txt",sep = ""),quote=F,col.names=F,row.names=F)
+write.table(WHtR_c,paste(work,"\\pheno_WHtR_c.txt",sep = ""),quote=F,col.names=F,row.names=F)
+
+Plink code: 
+  pheno.txt: Asthma pheno
+plink --bfile TWBR10704-05 -extract snp_1_22.txt --make-bed --out TWBR10704-05_1
+plink --bfile TWBR10704-05_1 --keep pheno.txt --make-bed --out Asthma
+##Marker QC
+plink --bfile Asthma --geno 0.05 --make-bed --out Asthma1
+plink --bfile Asthma1 --maf 0.01 --make-bed --out Asthma2
+plink --bfile Asthma2 --hwe 8.185999e-08 --make-bed --out Asthma3 (0.05/SNP)
+
+##Marker QC data output Rcode:
+setwd("E:\\H107217_1\\tom_TWBdata\\TWB_matching\\plink\\marker QC\\")
+CR<-read.table("plink.lmiss", header = T)
+write.csv(CR[CR$F_MISS>0.05,],"CR.csv", quote = F,row.names = F)
+MAF<-read.table("plink.frq", header = T)
+write.csv(MAF[MAF$MAF<0.01,],"MAF.csv", quote = F,row.names = F)
+pHWE<-read.table("plink.hwe", header = T)
+pHWE<-pHWE[pHWE$TEST=="ALL",]
+write.csv(pHWE[pHWE$P<8.185999e-08,],"pHWE.csv", quote = F, row.names = F)
+
+PCA
+Plink code:
+plink --bfile Asthma3 --keep pheno.txt --pca 20 --out pca
+
+Rcode:
+## PCA plot and select
+work<-c("E:\\H107217_1\\tom_plink\\plink\\")
+pca_eigenvec<-read.table(paste(work,"\\pca.eigenvec",sep = ""))
+
+##need do pca (選擇多少PCA)
+pcs_val<-read.table(paste(work,"\\pca.eigenval",sep = ""))
+jpeg(filename = paste("E:\\H107217_1\\tom_plink\\plink plot","\\eigenval.jpg",sep = ""),width = 1000,height = 1000,res = 300)
+num=1:20
+plot(num,pcs_val$V1,ylab = "eigenval")
+dev.off()
+##---make covar data ----
+
+#asthma
+covar_asthma<-data.frame(data1$iid,data1$iid,pca_eigenvec[,3:22],data1$twbage,data1$SEX,data1$asthma_icdtwice)
+write.table(covar_asthma, paste(work,"\\covar_Asthma.txt",sep = ""),quote=F,col.names=F,row.names=F)
+#bmi
+covar_bmi<-data.frame(data1$iid,data1$iid,pca_eigenvec[,3:22],data1$twbage,data1$SEX,data1$asthma_icdtwice)
+write.table(covar_bmi, paste(work,"\\covar_Bmi.txt",sep = ""),quote=F,col.names=F,row.names=F)
+#wc_c
+covar_wc_c<-data.frame(data1$iid,data1$iid,pca_eigenvec[,3:22],data1$twbage,data1$SEX,data1$asthma_icdtwice)
+write.table(covar_wc_c, paste(work,"\\covar_Wc_c.txt",sep = ""),quote=F,col.names=F,row.names=F)
+#WHtR_c
+covar_WHtR_c<-data.frame(data1$iid,data1$iid,pca_eigenvec[,3:22],data1$twbage,data1$SEX,data1$asthma_icdtwice)
+write.table(covar_WHtR_c, paste(work,"\\covar_WHtR_c.txt",sep = ""),quote=F,col.names=F,row.names=F)
+
+
+ASSOC
+Plink code:
+Asthma logistic
+plink --bfile Asthma3 --logistic --adjust --pheno pheno_Asthma.txt --keep pheno_Asthma.txt --mpheno 1 --covar covar_Asthma.txt --covar-number 1-18,21,22 --hide-covar --out Asthma
+BMI linear
+plink --bfile Asthma3 --linear --adjust --pheno pheno_Bmi.txt --keep pheno_Bmi.txt --mpheno 1 --covar covar_Bmi.txt --covar-number 1-18,21,22 --hide-covar --out Bmi
+WC linear
+plink --bfile Asthma3 --linear --adjust --pheno pheno_Wc_c.txt --keep pheno_Wc_c.txt --mpheno 1 --covar covar_Wc_c.txt --covar-number 1-18,21,22 --hide-covar --out Wc_c
+WHtR linear
+plink --bfile Asthma3 --linear --adjust --pheno pheno_WHtR_c.txt --keep pheno_WHtR_c.txt --mpheno 1 --covar covar_WHtR_c.txt --covar-number 1-18,21,22 --hide-covar --out WHtR_c
+
+Clump
+Plink code:
+clump_Asthma
+plink --bfile Asthma3 --clump Asthma.assoc.logistic --keep pheno_Asthma.txt --out clump_Asthma
+clump_Bmi
+plink --bfile Asthma3 --clump Bmi.assoc.linear --keep pheno_Bmi.txt --out clump_Bmi
+clump_Wc_c
+plink --bfile Asthma3 --clump wc_c.assoc.linear --keep pheno_wc_c.txt --out clump_Wc_c
+clump_WHtR_c
+plink --bfile Asthma3 --clump WHtR_c.assoc.linear --keep pheno_WHtR_c.txt --out clump_WHtR_c
+
+SCORE
+Rcode:
+##----製作SNP表 score txt生成----
+
+
+##Asthma
+asthma<-read.table(paste(work,"\\clump_Asthma.clumped",sep = ""),header = T)
+logistic_asthma <-read.table(paste(work,"\\asthma.assoc.logistic",sep = ""),header = T)
+adjusted_asthma <-read.table(paste(work,"\\asthma.assoc.logistic.adjusted",sep = ""),header = T)
+adjusted_asthma<-adjusted_asthma[match(asthma$SNP,adjusted_asthma$SNP),c("CHR","SNP","BONF","FDR_BH")]
+file_asthma<-logistic_asthma[match(asthma$SNP,logistic_asthma$SNP),c("CHR","SNP","A1","OR","P")]
+
+file_asthma$BP<-asthma$BP
+file_asthma$SP2<-asthma$SP2
+file_asthma$BONF<-adjusted_asthma$BONF
+file_asthma$FDR_BH<-adjusted_asthma$FDR_BH
+
+write.csv(file_asthma, paste(work,"\\asthma.csv",sep = ""),row.names = FALSE)
+file<-file_asthma[,c("CHR","SNP","A1","OR")]
+file<-file[,-1]
+write.table(file, paste(work,"\\score_Asthma.txt",sep = ""),quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+##BMI
+bmi<-read.table(paste(work,"\\clump_Bmi.clumped",sep = ""),header = T)
+logistic_bmi <-read.table(paste(work,"\\Bmi.assoc.linear",sep = ""),header = T)
+adjusted_bmi <-read.table(paste(work,"\\Bmi.assoc.linear.adjusted",sep = ""),header = T)
+adjusted_c<-adjusted_bmi[match(bmi$SNP,adjusted_bmi$SNP),c("CHR","SNP","BONF","FDR_BH")]
+file_bmi<-logistic_bmi[match(bmi$SNP,logistic_bmi$SNP),c("CHR","SNP","A1","BETA","P")]
+
+file_bmi$BP<-bmi$BP
+file_bmi$SP2<-bmi$SP2
+file_bmi$BONF<-adjusted_c$BONF
+file_bmi$FDR_BH<-adjusted_c$FDR_BH
+write.csv(file_bmi, paste(work,"\\Bmi.csv",sep = ""),row.names = FALSE)
+
+
+file<-file_bmi[,c("CHR","SNP","A1","BETA")]
+file<-file[,-1]
+write.table(file, paste(work,"\\score_Bmi.txt",sep = ""),quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+
+##WC
+wc_c<-read.table(paste(work,"\\clump_Wc_c.clumped",sep = ""),header = T)
+logistic_wc_c <-read.table(paste(work,"\\Wc_c.assoc.linear",sep = ""),header = T)
+adjusted_wc_c <-read.table(paste(work,"\\Wc_c.assoc.linear.adjusted",sep = ""),header = T)
+adjusted_c<-adjusted_wc_c[match(wc_c$SNP,adjusted_wc_c$SNP),c("CHR","SNP","BONF","FDR_BH")]
+file_wc_c<-logistic_wc_c[match(wc_c$SNP,logistic_wc_c$SNP),c("CHR","SNP","A1","BETA","P")]
+
+file_wc_c$BP<-wc_c$BP
+file_wc_c$SP2<-wc_c$SP2
+file_wc_c$BONF<-adjusted_c$BONF
+file_wc_c$FDR_BH<-adjusted_c$FDR_BH
+write.csv(file_wc_c, paste(work,"\\Wc_c.csv",sep = ""),row.names = FALSE)
+
+file<-file_wc_c[ ,c("CHR","SNP","A1","BETA")]
+file<-file[,-1]
+write.table(file, paste(work,"\\score_Wc_c.txt",sep = ""),quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+
+
+##WHtR
+WHtR_c<-read.table(paste(work,"\\clump_WHtR_c.clumped",sep = ""),header = T)
+linear_WHtR_c <-read.table(paste(work,"\\WHtR_c.assoc.linear",sep = ""),header = T)
+adjusted_WHtR_c <-read.table(paste(work,"\\WHtR_c.assoc.linear.adjusted",sep = ""),header = T)
+adjusted_WHtR_c<-adjusted_WHtR_c[match(WHtR_c$SNP,adjusted_WHtR_c$SNP),c("CHR","SNP","BONF","FDR_BH")]
+file_WHtR_c<-linear_WHtR_c[match(WHtR_c$SNP,linear_WHtR_c$SNP),c("CHR","SNP","A1","BETA","P")]
+
+file_WHtR_c$BP<-WHtR_c$BP
+file_WHtR_c$SP2<-WHtR_c$SP2
+file_WHtR_c$BONF<-adjusted_WHtR_c$BONF
+file_WHtR_c$FDR_BH<-adjusted_WHtR_c$FDR_BH
+write.csv(file_wc_c,paste(work,"\\WHtR_c.csv",sep = ""),row.names = FALSE)
+
+file<-file_WHtR_c[,c("CHR","SNP","A1","BETA")]
+file<-file[,-1]
+write.table(file, paste(work,"\\score_WHtR_c.txt",sep = ""),quote = FALSE, row.names = FALSE, col.names = FALSE)
+
+Plink code:
+
+score_Asthma
+plink --bfile Asthma3 --keep pheno_Asthma.txt --score score_Asthma.txt --out score_asthma
+score_Bmi
+plink --bfile Asthma3 --keep pheno_Bmi.txt --score score_Bmi.txt --out score_bmi
+score_Wc_c
+plink --bfile Asthma3 --keep pheno_Wc_c.txt --score score_Wc_c.txt --out score_wc_c
+score_WHtR_c
+plink --bfile Asthma3 --keep pheno_WHtR_c.txt --score score_WHtR_c.txt --out score_WHtR_c
+R code:
+##----附值到data中----
+
+work<-"E:\\H107217_1\\tom_plink"
+x<-paste(work,"\\match_data.csv",sep = "")
+data<-read.csv(x)
+data<-data[order(data$iid),]
+score_asthma<-read.table(paste(work,"\\plink\\score_asthma.profile",sep = ""),header = T)
+score_bmi<-read.table(paste(work,"\\plink\\score_bmi.profile",sep = ""),header = T)
+score_wc_c<-read.table(paste(work,"\\plink\\score_wc_c.profile",sep = ""),header = T)
+score_WHtR_c<-read.table(paste(work,"\\plink\\score_WHtR_c.profile",sep = ""),header = T)
+
+##標準化
+data$score_asthma<-(score_asthma$SCORE-mean(score_asthma$SCORE))/sd(score_asthma$SCORE)
+data$score_bmi<-(score_bmi$SCORE-mean(score_bmi$SCORE))/sd(score_bmi$SCORE)
+data$score_wc_c<-(score_wc_c$SCORE-mean(score_wc_c$SCORE))/sd(score_wc_c$SCORE)
+data$score_WHtR_c<-(score_WHtR_c$SCORE-mean(score_WHtR_c$SCORE))/sd(score_WHtR_c$SCORE)
+write.csv(data,paste(work,"\\match_data_new.csv",sep = ""),row.names = FALSE)
+
+##R CODE  針對score asthma 進行調正 ->score_asthma_fix
+
+setwd("E:\\H107217_1\\tom_TWBdata\\TWB_matching\plink\\")
+x<-read.table("score_Asthma.txt", header = F)
+x$V3<-round(log(x$V3),4)
+write.table(x, "score_Asthma_fix.txt", append = F, quote = F,row.names = F,col.names = F)
+
+#plink code score asthma fix:
+plink --bfile Asthma3 --keep pheno_Asthma.txt --score score_Asthma_fix.txt --out score_asthma_fix
+
+##R code:
+score_asthma_fix<-read.table("score_asthma_fix.profile", sep = "",header = T)
+##標準化
+score_asthma_fix<-(score_asthma_fix$SCORE-mean(score_asthma_fix$SCORE))/sd(score_asthma_fix$SCORE)
+data<-read.csv("E:\\H107217_1\\tom_plink\\match_data_new.csv")
+data$score_asthma_fix<-score_asthma_fix$SCORE
+write.csv(data,"E:\\H107217_1\\tom_plink\\match_data_new2.csv",row.names = F)
+
+
+Estlambda QQplot Manhattan 
+source("F:\\H107217\\Tom\\Rcode\\genereflect_qqplot_manhatten.r")
+#genomic inflation factor, qqplot, manhatten
+work<-" E:\\H107217_1\\tom_TWBdata\\TWB_matching\\plink\\"
+
+##Asthma
+results_asthma<-read.table(paste(work,"Asthma.assoc.logistic",sep = ""),header = T)
+pvalues_asthma = results_asthma[,9]
+estlambda(pvalues_asthma)
+results_asthma1<-results_asthma[,c(1,2,3,9)]
+
+results_asthma1<-data.frame(na.omit(results_asthma1))
+setwd("F:\\H107217\\Tom\\20210104\\plot\\")
+jpeg("Asthma_QQplot.jpg",width = 1200,height = 1200,res = 300)
+simpleQQPlot(results_asthma1$P)
+dev.off()
+
+jpeg("Asthma_Manhattan.jpg",width = 2400,height = 1600,res = 300)
+manhattan(results_asthma1,col = c("#8DA0CB","#E78AC3","#A6D854","#FFD92F","#E5C494","#66C2A5","#FC8D62"))
+dev.off()
+
+
+
+##BMI
+results_bmi<-read.table(paste(work,"Bmi.assoc.linear",sep = ""),header = T)
+pvalues_bmi = results_bmi[,9]
+estlambda(pvalues_bmi)
+
+results_bmi1<-results_bmi[,c(1,2,3,9)]
+results_bmi1<-data.frame(na.omit(results_bmi1))
+jpeg("BMI_QQplot.jpg",width = 1200,height = 1200,res = 300)
+simpleQQPlot(results_bmi1$P)
+dev.off()
+jpeg("BMI_Manhattan.jpg",width = 2400,height = 1600,res = 300)
+manhattan(results_bmi1,col = c("#8DA0CB","#E78AC3","#A6D854","#FFD92F","#E5C494","#66C2A5","#FC8D62"))
+dev.off()
+
+
+
+##WC
+results_wc_c<-read.table(paste(work,"Wc_c.assoc.linear",sep = ""),header = T)
+pvalues_wc_c = results_wc_c[,9]
+estlambda(pvalues_wc_c)
+results_wc_c1<-results_wc_c[,c(1,2,3,9)]
+results_wc_c1<-data.frame(na.omit(results_wc_c1))
+jpeg("Wc_c_QQplot.jpg",width = 1200,height = 1200,res = 300)
+simpleQQPlot(results_wc_c1$P)
+dev.off()
+jpeg("Wc_c_Manhattan.jpg",width = 2400,height = 1600,res = 300)
+manhattan(results_wc_c1,col = c("#8DA0CB","#E78AC3","#A6D854","#FFD92F","#E5C494","#66C2A5","#FC8D62"))
+dev.off()
+
+##WHtR
+results_WHtR_c<-read.table(paste(work,"WHtR_c.assoc.linear",sep = ""),header = T)
+pvalues_WHtR_c = results_WHtR_c[,9]
+estlambda(pvalues_WHtR_c)
+results_WHtR_c1<-results_WHtR_c[,c(1,2,3,9)]
+results_WHtR_c1<-data.frame(na.omit(results_WHtR_c1))
+jpeg("WHtR_c_QQplot.jpg",width = 1200,height = 1200,res = 300)
+simpleQQPlot(results_WHtR_c1$P)
+dev.off()
+jpeg("WHtR_c_Manhattan.jpg",width = 2400,height = 1600,res = 300)
+manhattan(results_WHtR_c1,col = c("#8DA0CB","#E78AC3","#A6D854","#FFD92F","#E5C494","#66C2A5","#FC8D62"))
+dev.off()
+
+
+
