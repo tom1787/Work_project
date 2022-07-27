@@ -1,0 +1,464 @@
+##For Obesity SNP
+
+setwd("E:\\H107217_1\\tom_Asthma_Severe\\plink\\Control\\")
+# BMI<-read.table("clump_Bmi.clumped",header = T)
+# write.table(BMI$SNP,"SNP_meta_BMI.txt",append = F,quote = F,row.names = F,col.names = F)
+# WC<-read.table("clump_WC.clumped",header = T)
+# write.table(WC$SNP,"SNP_meta_WC.txt",append = F,quote = F,row.names = F,col.names = F)
+# WHtR<-read.table("clump_WHtR.clumped",header = T)
+# write.table(WHtR$SNP,"SNP_meta_WHtR.txt",append = F,quote = F,row.names = F,col.names = F)
+# 
+
+#BMI----
+SNP_meta_BMI<-data.frame(read.table("E:\\H107217_1\\tom_Asthma_Severe\\plink\\Control\\SNP_meta_BMI.raw",header = T))
+SNP_meta_WC<-data.frame(read.table("E:\\H107217_1\\tom_Asthma_Severe\\plink\\Control\\SNP_meta_WC.raw",header = T))
+SNP_meta_WHtR<-data.frame(read.table("E:\\H107217_1\\tom_Asthma_Severe\\plink\\Control\\SNP_meta_WHtR.raw",header = T))
+
+#delete 
+SNP_meta_BMI<-SNP_meta_BMI[,-c(1,3:6,seq(8,ncol(SNP_meta_BMI),by=2))] 
+SNP_meta_WC<-SNP_meta_WC[,-c(1,3:6,seq(8,ncol(SNP_meta_WC),by=2))]
+SNP_meta_WHtR<-SNP_meta_WHtR[,-c(1,3:6,seq(8,ncol(SNP_meta_WHtR),by=2))]
+
+Control<-data.frame(read.csv("E:\\H107217_1\\tom_Asthma_Severe\\match_control_1.csv"))
+
+Control<-Control[order(Control$IID),c("IID","control_people","X_MatchID_1","asthma_parent","out_count_all","quick_count_all","Steroid_all","Bmi","class_Bmi","class_wc","wc_hei_class")]
+Control$Bmi_new[Control$Bmi<22.0984193]<-1
+Control$Bmi_new[Control$Bmi>=22.0984193 & Control$Bmi<24.4637050]<-2
+Control$Bmi_new[Control$Bmi>=24.4637050 & Control$Bmi<26.8931638]<-3
+Control$Bmi_new[Control$Bmi>=26.8931638]<-4
+
+Control_BMI<-merge(Control,SNP_meta_BMI,by = "IID",all.x = T)
+Control_WC<-merge(Control,SNP_meta_WC,by = "IID",all.x = T)
+Control_WHtR<-merge(Control,SNP_meta_WHtR,by = "IID",all.x = T)
+
+library(survival)
+SNP<-function(data,type){
+  
+  if(type=="class_bmi"){
+    snps_A<-list()
+    snps_D<-list()
+    snps_R<-list()
+  
+    for(i in 1:(ncol(data)-12)){
+      snp<-data.frame(y=data[,2],X_MatchID=data[,3],asthma_parent=data[,4],
+                      out_count_all=data[,5],quick_count_all=data[,6],Steroid_all=data[,7],
+                      BMI=data[,8],class_bmi=data[,9],class_wc=data[,10],wc_hei_class=data[,11],BMI_new=data[,12],snp=data[,12+i])
+      snp$class_bmi<-factor(snp$class_bmi,levels = c(2,1,3,4))
+      snp$snp_D[snp$snp==1 | snp$snp==2]<-1
+      snp$snp_D[snp$snp==0]<-0
+      snp$snp_R[snp$snp==2 ]<-1
+      snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+    
+        f<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp+strata(X_MatchID)"))
+        snps_A[[i]]<-data.frame(snp1=summary(clogit(f,data = snp))$coef[,2],
+                                Pvalue1=summary(clogit(f,data = snp))$coef[,5],
+                                lower1=summary(clogit(f,data = snp))$conf.int[,3],
+                                upper1=summary(clogit(f,data = snp))$conf.int[,4])
+        f_D<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_D+strata(X_MatchID)")) 
+        snps_D[[i]]<-data.frame(
+          snp1=summary(clogit(f_D,data = snp))$coef[,2],
+          Pvalue1=summary(clogit(f_D,data = snp))$coef[,5],
+          lower1=summary(clogit(f_D,data = snp))$conf.int[,3],
+          upper1=summary(clogit(f_D,data = snp))$conf.int[,4])
+        f_R<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_R+strata(X_MatchID)"))  
+        if(length(levels(factor(snp$snp_R))) < 2){
+          snps_R[[i]]<-data.frame(
+            snp1=rep(NA,5),Pvalue1=rep(NA,5),lower1=rep(NA,5),upper1=rep(NA,5))
+        }else{
+          snps_R[[i]]<-data.frame(
+            snp1=summary(clogit(f_R,data = snp))$coef[,2],
+            Pvalue1=summary(clogit(f_R,data = snp))$coef[,5],
+            lower1=summary(clogit(f_R,data = snp))$conf.int[,3],
+            upper1=summary(clogit(f_R,data = snp))$conf.int[,4])
+        }
+        
+        names(snps_A)[i]<-names(data)[12+i]
+        names(snps_D)[i]<-names(data)[12+i]
+        names(snps_R)[i]<-names(data)[12+i]
+      }
+      variable<-rep(c("snp","P","lower","Upper"),times=length(names(snps_A)))
+      name<-c("asthma_parent","BMI1","BMI3","BMI4","SNP")
+      snps_A1<-data.frame(snp=rep(names(snps_A),each=4),variable=variable,t(matrix(unlist(snps_A),nrow=5)))
+      names(snps_A1)[3:7]<-name
+      snps_D1<-data.frame(snp=rep(names(snps_D),each=4),variable=variable,t(matrix(unlist(snps_D),nrow=5)))
+      names(snps_D1)[3:7]<-name
+      snps_R1<-data.frame(snp=rep(names(snps_R),each=4),variable=variable,t(matrix(unlist(snps_R),nrow=5)))
+      names(snps_R1)[3:7]<-name
+      return(list(snps_A1,snps_D1,snps_R1))
+    }
+  if(type=="class_wc"){
+    snps_A<-list()
+    snps_D<-list()
+    snps_R<-list()
+      for(i in 1:(ncol(data)-12)){
+        snp<-data.frame(y=data[,2],X_MatchID=data[,3],asthma_parent=data[,4],
+                        out_count_all=data[,5],quick_count_all=data[,6],Steroid_all=data[,7],
+                        BMI=data[,8],class_bmi=data[,9],class_wc=data[,10],wc_hei_class=data[,11],BMI_new=data[,12],snp=data[,12+i])
+        snp$class_bmi<-factor(snp$class_bmi,levels = c(2,1,3,4))
+        snp$snp_D[snp$snp==1 | snp$snp==2]<-1
+        snp$snp_D[snp$snp==0]<-0
+        snp$snp_R[snp$snp==2 ]<-1
+        snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+      f<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp+strata(X_MatchID)"))
+      snps_A[[i]]<-data.frame(snp1=summary(clogit(f,data = snp))$coef[,2],
+                              Pvalue1=summary(clogit(f,data = snp))$coef[,5],
+                              lower1=summary(clogit(f,data = snp))$conf.int[,3],
+                              upper1=summary(clogit(f,data = snp))$conf.int[,4])
+      f_D<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_D+strata(X_MatchID)")) 
+      snps_D[[i]]<-data.frame(
+        snp1=summary(clogit(f_D,data = snp))$coef[,2],
+        Pvalue1=summary(clogit(f_D,data = snp))$coef[,5],
+        lower1=summary(clogit(f_D,data = snp))$conf.int[,3],
+        upper1=summary(clogit(f_D,data = snp))$conf.int[,4])
+      f_R<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_R+strata(X_MatchID)"))  
+      if(length(levels(factor(snp$snp_R))) < 2){
+        snps_R[[i]]<-data.frame(
+          snp1=rep(NA,3),Pvalue1=rep(NA,3),lower1=rep(NA,3),upper1=rep(NA,3))
+      }else{
+        snps_R[[i]]<-data.frame(
+          snp1=summary(clogit(f_R,data = snp))$coef[,2],
+          Pvalue1=summary(clogit(f_R,data = snp))$coef[,5],
+          lower1=summary(clogit(f_R,data = snp))$conf.int[,3],
+          upper1=summary(clogit(f_R,data = snp))$conf.int[,4])
+      }
+      
+      names(snps_A)[i]<-names(data)[12+i]
+      names(snps_D)[i]<-names(data)[12+i]
+      names(snps_R)[i]<-names(data)[12+i]
+    }
+    variable<-rep(c("snp","P","lower","Upper"),times=length(names(snps_A)))
+    name<-c("asthma_parent","WC1","SNP")
+    snps_A1<-data.frame(snp=rep(names(snps_A),each=4),variable=variable,t(matrix(unlist(snps_A),nrow=3)))
+    names(snps_A1)[3:5]<-name
+    snps_D1<-data.frame(snp=rep(names(snps_D),each=4),variable=variable,t(matrix(unlist(snps_D),nrow=3)))
+    names(snps_D1)[3:5]<-name
+    snps_R1<-data.frame(snp=rep(names(snps_R),each=4),variable=variable,t(matrix(unlist(snps_R),nrow=3)))
+    names(snps_R1)[3:5]<-name
+    return(list(snps_A1,snps_D1,snps_R1))
+  }
+  if(type=="wc_hei_class"){
+    snps_A<-list()
+    snps_D<-list()
+    snps_R<-list()
+    for(i in 1:(ncol(data)-12)){
+      snp<-data.frame(y=data[,2],X_MatchID=data[,3],asthma_parent=data[,4],
+                      out_count_all=data[,5],quick_count_all=data[,6],Steroid_all=data[,7],
+                      BMI=data[,8],class_bmi=data[,9],class_wc=data[,10],wc_hei_class=data[,11],BMI_new=data[,12],snp=data[,12+i])
+      snp$class_bmi<-factor(snp$class_bmi,levels = c(2,1,3,4))
+      snp$snp_D[snp$snp==1 | snp$snp==2]<-1
+      snp$snp_D[snp$snp==0]<-0
+      snp$snp_R[snp$snp==2 ]<-1
+      snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+    f<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp+strata(X_MatchID)"))
+    snps_A[[i]]<-data.frame(snp1=summary(clogit(f,data = snp))$coef[,2],
+                            Pvalue1=summary(clogit(f,data = snp))$coef[,5],
+                            lower1=summary(clogit(f,data = snp))$conf.int[,3],
+                            upper1=summary(clogit(f,data = snp))$conf.int[,4])
+    f_D<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_D+strata(X_MatchID)")) 
+    snps_D[[i]]<-data.frame(
+      snp1=summary(clogit(f_D,data = snp))$coef[,2],
+      Pvalue1=summary(clogit(f_D,data = snp))$coef[,5],
+      lower1=summary(clogit(f_D,data = snp))$conf.int[,3],
+      upper1=summary(clogit(f_D,data = snp))$conf.int[,4])
+    f_R<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_R+strata(X_MatchID)"))  
+    if(length(levels(factor(snp$snp_R))) < 2){
+      snps_R[[i]]<-data.frame(
+        snp1=rep(NA,3),Pvalue1=rep(NA,3),lower1=rep(NA,3),upper1=rep(NA,3))
+    }else{
+      snps_R[[i]]<-data.frame(
+        snp1=summary(clogit(f_R,data = snp))$coef[,2],
+        Pvalue1=summary(clogit(f_R,data = snp))$coef[,5],
+        lower1=summary(clogit(f_R,data = snp))$conf.int[,3],
+        upper1=summary(clogit(f_R,data = snp))$conf.int[,4])
+    }
+    
+    names(snps_A)[i]<-names(data)[12+i]
+    names(snps_D)[i]<-names(data)[12+i]
+    names(snps_R)[i]<-names(data)[12+i]
+  }
+  variable<-rep(c("snp","P","lower","Upper"),times=length(names(snps_A)))
+  name<-c("asthma_parent","WHtR1","SNP")
+  snps_A1<-data.frame(snp=rep(names(snps_A),each=4),variable=variable,t(matrix(unlist(snps_A),nrow=3)))
+  names(snps_A1)[3:5]<-name
+  snps_D1<-data.frame(snp=rep(names(snps_D),each=4),variable=variable,t(matrix(unlist(snps_D),nrow=3)))
+  names(snps_D1)[3:5]<-name
+  snps_R1<-data.frame(snp=rep(names(snps_R),each=4),variable=variable,t(matrix(unlist(snps_R),nrow=3)))
+  names(snps_R1)[3:5]<-name
+  return(list(snps_A1,snps_D1,snps_R1))
+  }
+  
+}
+
+
+Show<-function(data){
+  D<-data[data$variable=="P",c("snp","SNP")]
+  D_snp<-D[D$SNP<0.05,c("snp","SNP")]
+  names(D_snp)<-c("snp","p_value")
+  
+  DD<-data[data$variable=="snp",c("snp","SNP")]
+  lw<-data[data$variable=="lower",c("snp","SNP")]
+  names(lw)<-c("snp","lw")
+  up<-data[data$variable=="Upper",c("snp","SNP")]
+  names(up)<-c("snp","up")
+  
+  
+  DDD<-merge(D_snp,DD,by="snp",all.x=T)
+  DDDD<-merge(DDD,lw,by="snp",all.x=T)
+  DDDDD<-merge(DDDD,up,by="snp",all.x=T)
+  for( i in 1:nrow(DDDDD)){
+    print(paste0(DDDDD$snp[i],": ",round(DDDDD$SNP[i],2)," (",round(DDDDD$lw[i],2),", ",round(DDDDD$up[i],2),") P=",round(DDDDD$p_value[i],3)))
+  }
+}
+
+
+
+
+A<-SNP(Control_BMI,"class_bmi")
+Show(A[[1]])
+Show(A[[2]])
+#NA
+Show(A[[3]])
+
+
+C<-SNP(Control_WHtR,"wc_hei_class")
+Show(C[[1]])
+Show(C[[2]])
+Show(C[[3]])
+
+
+##For Asthma SNP
+##Asthma SNP----
+setwd("F:\\H107217_1\\tom_Asthma_Severe\\plink\\Meta_Asthma")
+
+#Analysis
+SNP_meta_Asthma<-data.frame(read.table("SNP_meta_Asthma1.raw",header = T))
+
+#delete 
+SNP_meta_Asthma<-SNP_meta_Asthma[,-c(1,3:6,seq(8,ncol(SNP_meta_Asthma),by=2))]
+
+Control<-data.frame(read.csv("F:\\H107217_1\\tom_Asthma_Severe\\match_control_1.csv"))
+
+Control<-Control[order(Control$IID),c("IID","control_people","X_MatchID_1","asthma_parent","out_count_all","quick_count_all","Steroid_all","Bmi","class_Bmi","class_wc","wc_hei_class")]
+Control$Bmi_new[Control$Bmi<22.0984193]<-1
+Control$Bmi_new[Control$Bmi>=22.0984193 & Control$Bmi<24.4637050]<-2
+Control$Bmi_new[Control$Bmi>=24.4637050 & Control$Bmi<26.8931638]<-3
+Control$Bmi_new[Control$Bmi>=26.8931638]<-4
+
+Control<-merge(Control,SNP_meta_Asthma,by = "IID",all.x = T)
+
+library(survival)
+SNP<-function(data,type){
+  
+  if(type=="class_bmi"){
+    snps_A<-list()
+    snps_D<-list()
+    snps_R<-list()
+    for(i in 1:(ncol(data)-12)){
+      snp<-data.frame(y=data[,2],X_MatchID=data[,3],asthma_parent=data[,4],
+                      out_count_all=data[,5],quick_count_all=data[,6],Steroid_all=data[,7],
+                      BMI=data[,8],class_bmi=data[,9],class_wc=data[,10],wc_hei_class=data[,11],BMI_new=data[,12],snp=data[,12+i])
+      snp$class_bmi<-factor(snp$class_bmi,levels = c(2,1,3,4))
+      snp$snp_D[snp$snp==1 | snp$snp==2]<-1
+      snp$snp_D[snp$snp==0]<-0
+      snp$snp_R[snp$snp==2 ]<-1
+      snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+      
+      f<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp+strata(X_MatchID)"))
+      snps_A[[i]]<-data.frame(snp1=summary(clogit(f,data = snp))$coef[,2],
+                              Pvalue1=summary(clogit(f,data = snp))$coef[,5],
+                              lower1=summary(clogit(f,data = snp))$conf.int[,3],
+                              upper1=summary(clogit(f,data = snp))$conf.int[,4])
+      f_D<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_D+strata(X_MatchID)")) 
+      snps_D[[i]]<-data.frame(
+        snp1=summary(clogit(f_D,data = snp))$coef[,2],
+        Pvalue1=summary(clogit(f_D,data = snp))$coef[,5],
+        lower1=summary(clogit(f_D,data = snp))$conf.int[,3],
+        upper1=summary(clogit(f_D,data = snp))$conf.int[,4])
+      f_R<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_R+strata(X_MatchID)"))  
+      if(length(levels(factor(snp$snp_R))) < 2){
+        snps_R[[i]]<-data.frame(
+          snp1=rep(NA,7),Pvalue1=rep(NA,5),lower1=rep(NA,5),upper1=rep(NA,5))
+      }else{
+        snps_R[[i]]<-data.frame(
+          snp1=summary(clogit(f_R,data = snp))$coef[,2],
+          Pvalue1=summary(clogit(f_R,data = snp))$coef[,5],
+          lower1=summary(clogit(f_R,data = snp))$conf.int[,3],
+          upper1=summary(clogit(f_R,data = snp))$conf.int[,4])
+      }
+      
+      names(snps_A)[i]<-names(data)[12+i]
+      names(snps_D)[i]<-names(data)[12+i]
+      names(snps_R)[i]<-names(data)[12+i]
+    }
+    variable<-rep(c("snp","P","lower","Upper"),times=length(names(snps_A)))
+    name<-c("asthma_parent","BMI1","BMI3","BMI4","SNP")
+    snps_A1<-data.frame(snp=rep(names(snps_A),each=4),variable=variable,t(matrix(unlist(snps_A),nrow=5)))
+    names(snps_A1)[3:7]<-name
+    snps_D1<-data.frame(snp=rep(names(snps_D),each=4),variable=variable,t(matrix(unlist(snps_D),nrow=5)))
+    names(snps_D1)[3:7]<-name
+    snps_R1<-data.frame(snp=rep(names(snps_R),each=4),variable=variable,t(matrix(unlist(snps_R),nrow=5)))
+    names(snps_R1)[3:7]<-name
+    return(list(snps_A1,snps_D1,snps_R1))
+  }
+  if(type=="class_wc"){
+    snps_A<-list()
+    snps_D<-list()
+    snps_R<-list()
+    for(i in 1:(ncol(data)-12)){
+      snp<-data.frame(y=data[,2],X_MatchID=data[,3],asthma_parent=data[,4],
+                      out_count_all=data[,5],quick_count_all=data[,6],Steroid_all=data[,7],
+                      BMI=data[,8],class_bmi=data[,9],class_wc=data[,10],wc_hei_class=data[,11],BMI_new=data[,12],snp=data[,12+i])
+      snp$class_bmi<-factor(snp$class_bmi,levels = c(2,1,3,4))
+      snp$snp_D[snp$snp==1 | snp$snp==2]<-1
+      snp$snp_D[snp$snp==0]<-0
+      snp$snp_R[snp$snp==2 ]<-1
+      snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+      f<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp+strata(X_MatchID)"))
+      snps_A[[i]]<-data.frame(snp1=summary(clogit(f,data = snp))$coef[,2],
+                              Pvalue1=summary(clogit(f,data = snp))$coef[,5],
+                              lower1=summary(clogit(f,data = snp))$conf.int[,3],
+                              upper1=summary(clogit(f,data = snp))$conf.int[,4])
+      f_D<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_D+strata(X_MatchID)")) 
+      snps_D[[i]]<-data.frame(
+        snp1=summary(clogit(f_D,data = snp))$coef[,2],
+        Pvalue1=summary(clogit(f_D,data = snp))$coef[,5],
+        lower1=summary(clogit(f_D,data = snp))$conf.int[,3],
+        upper1=summary(clogit(f_D,data = snp))$conf.int[,4])
+      f_R<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_R+strata(X_MatchID)"))  
+      if(length(levels(factor(snp$snp_R))) < 2){
+        snps_R[[i]]<-data.frame(
+          snp1=rep(NA,3),Pvalue1=rep(NA,3),lower1=rep(NA,3),upper1=rep(NA,3))
+      }else{
+        snps_R[[i]]<-data.frame(
+          snp1=summary(clogit(f_R,data = snp))$coef[,2],
+          Pvalue1=summary(clogit(f_R,data = snp))$coef[,5],
+          lower1=summary(clogit(f_R,data = snp))$conf.int[,3],
+          upper1=summary(clogit(f_R,data = snp))$conf.int[,4])
+      }
+      
+      names(snps_A)[i]<-names(data)[12+i]
+      names(snps_D)[i]<-names(data)[12+i]
+      names(snps_R)[i]<-names(data)[12+i]
+    }
+    variable<-rep(c("snp","P","lower","Upper"),times=length(names(snps_A)))
+    name<-c("asthma_parent","WC1","SNP")
+    snps_A1<-data.frame(snp=rep(names(snps_A),each=4),variable=variable,t(matrix(unlist(snps_A),nrow=3)))
+    names(snps_A1)[3:5]<-name
+    snps_D1<-data.frame(snp=rep(names(snps_D),each=4),variable=variable,t(matrix(unlist(snps_D),nrow=3)))
+    names(snps_D1)[3:5]<-name
+    snps_R1<-data.frame(snp=rep(names(snps_R),each=4),variable=variable,t(matrix(unlist(snps_R),nrow=3)))
+    names(snps_R1)[3:5]<-name
+    return(list(snps_A1,snps_D1,snps_R1))
+  }
+  if(type=="wc_hei_class"){
+    snps_A<-list()
+    snps_D<-list()
+    snps_R<-list()
+    for(i in 1:(ncol(data)-12)){
+      snp<-data.frame(y=data[,2],X_MatchID=data[,3],asthma_parent=data[,4],
+                      out_count_all=data[,5],quick_count_all=data[,6],Steroid_all=data[,7],
+                      BMI=data[,8],class_bmi=data[,9],class_wc=data[,10],wc_hei_class=data[,11],BMI_new=data[,12],snp=data[,12+i])
+      snp$class_bmi<-factor(snp$class_bmi,levels = c(2,1,3,4))
+      snp$snp_D[snp$snp==1 | snp$snp==2]<-1
+      snp$snp_D[snp$snp==0]<-0
+      snp$snp_R[snp$snp==2 ]<-1
+      snp$snp_R[snp$snp==0 | snp$snp==1 ]<-0
+      f<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp+strata(X_MatchID)"))
+      snps_A[[i]]<-data.frame(snp1=summary(clogit(f,data = snp))$coef[,2],
+                              Pvalue1=summary(clogit(f,data = snp))$coef[,5],
+                              lower1=summary(clogit(f,data = snp))$conf.int[,3],
+                              upper1=summary(clogit(f,data = snp))$conf.int[,4])
+      f_D<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_D+strata(X_MatchID)")) 
+      snps_D[[i]]<-data.frame(
+        snp1=summary(clogit(f_D,data = snp))$coef[,2],
+        Pvalue1=summary(clogit(f_D,data = snp))$coef[,5],
+        lower1=summary(clogit(f_D,data = snp))$conf.int[,3],
+        upper1=summary(clogit(f_D,data = snp))$conf.int[,4])
+      f_R<-formula(paste0("y~factor(asthma_parent)+factor(",type,")+snp_R+strata(X_MatchID)"))  
+      if(length(levels(factor(snp$snp_R))) < 2){
+        snps_R[[i]]<-data.frame(
+          snp1=rep(NA,3),Pvalue1=rep(NA,3),lower1=rep(NA,3),upper1=rep(NA,3))
+      }else{
+        snps_R[[i]]<-data.frame(
+          snp1=summary(clogit(f_R,data = snp))$coef[,2],
+          Pvalue1=summary(clogit(f_R,data = snp))$coef[,5],
+          lower1=summary(clogit(f_R,data = snp))$conf.int[,3],
+          upper1=summary(clogit(f_R,data = snp))$conf.int[,4])
+      }
+      
+      names(snps_A)[i]<-names(data)[12+i]
+      names(snps_D)[i]<-names(data)[12+i]
+      names(snps_R)[i]<-names(data)[12+i]
+    }
+    variable<-rep(c("snp","P","lower","Upper"),times=length(names(snps_A)))
+    name<-c("asthma_parent","WHtR1","SNP")
+    snps_A1<-data.frame(snp=rep(names(snps_A),each=4),variable=variable,t(matrix(unlist(snps_A),nrow=3)))
+    names(snps_A1)[3:5]<-name
+    snps_D1<-data.frame(snp=rep(names(snps_D),each=4),variable=variable,t(matrix(unlist(snps_D),nrow=3)))
+    names(snps_D1)[3:5]<-name
+    snps_R1<-data.frame(snp=rep(names(snps_R),each=4),variable=variable,t(matrix(unlist(snps_R),nrow=3)))
+    names(snps_R1)[3:5]<-name
+    return(list(snps_A1,snps_D1,snps_R1))
+  }
+  
+}
+
+
+
+
+Show<-function(data){
+  D<-data[data$variable=="P",c("snp","SNP")]
+  D_snp<-D[D$SNP<0.05,c("snp","SNP")]
+  names(D_snp)<-c("snp","p_value")
+  
+  DD<-data[data$variable=="snp",c("snp","SNP")]
+  lw<-data[data$variable=="lower",c("snp","SNP")]
+  names(lw)<-c("snp","lw")
+  up<-data[data$variable=="Upper",c("snp","SNP")]
+  names(up)<-c("snp","up")
+  
+  
+  DDD<-merge(D_snp,DD,by="snp",all.x=T)
+  DDDD<-merge(DDD,lw,by="snp",all.x=T)
+  DDDDD<-merge(DDDD,up,by="snp",all.x=T)
+  for( i in 1:nrow(DDDDD)){
+    print(paste0(DDDDD$snp[i],": ",round(DDDDD$SNP[i],2)," (",round(DDDDD$lw[i],2),", ",round(DDDDD$up[i],2),") P=",round(DDDDD$p_value[i],3)))
+  }
+}
+
+Show<-function(data){
+  D<-data[data$variable=="P",c("snp","SNP")]
+ 
+  D_snp<-D[D$SNP<0.05,c("snp","SNP")]
+  names(D_snp)<-c("snp","p_value")
+  
+  DD<-data[data$variable=="snp",c("snp","SNP")]
+  lw<-data[data$variable=="lower",c("snp","SNP")]
+  names(lw)<-c("snp","lw")
+  up<-data[data$variable=="Upper",c("snp","SNP")]
+  names(up)<-c("snp","up")
+  
+  
+  DDD<-merge(D_snp,DD,by="snp",all.x=T)
+  DDDD<-merge(DDD,lw,by="snp",all.x=T)
+  DDDDD<-merge(DDDD,up,by="snp",all.x=T)
+  for( i in 1:nrow(DDDDD)){
+    print(paste0(DDDDD$snp[i],": ",DDDDD$SNP[i]," (",round(DDDDD$lw[i],2),", ",round(DDDDD$up[i],2),")"))
+  }
+}
+
+A<-SNP(Control,"class_bmi")
+Show(A[[1]])
+Show(A[[2]])
+Show(A[[3]])
+
+# B<-SNP(Control,"class_wc")
+# Show(B[[1]])
+# Show(B[[2]])
+# Show(B[[3]])
+
+C<-SNP(Control,"wc_hei_class")
+Show(C[[1]])
+Show(C[[2]])
+Show(C[[3]])
+
